@@ -1,0 +1,58 @@
+# =============================================================================
+# Core requirements (required for all pipeline stages)
+# =============================================================================
+numpy>=1.24.0
+opencv-python>=4.8.0
+tqdm>=4.66.0
+pyyaml>=6.0
+
+# =============================================================================
+# Face detection & landmarks (default backend)
+# =============================================================================
+mediapipe>=0.10.0
+
+# =============================================================================
+# Object detection (default backend – AGPL-3.0 licence)
+# =============================================================================
+ultralytics>=8.0.0      # YOLOv8
+
+# =============================================================================
+# Face identity verification (default backend)
+# =============================================================================
+deepface>=0.0.80        # MIT wrapper; model weights are individually licensed
+tf-keras                # required by deepface with TensorFlow >= 2.16
+
+# =============================================================================
+# Moodle image extraction
+# =============================================================================
+psycopg2-binary>=2.9    # PostgreSQL driver for moodle_extractor.py
+requests>=2.28          # HTTP downloads from Moodle pluginfile URLs
+paramiko>=4.0.0         # SSH tunnel + SFTP bridge for remote Moodle access
+
+# =============================================================================
+# Review dashboard
+# =============================================================================
+flask>=3.0
+
+# =============================================================================
+# Optional: faster deep-learning runtime
+# =============================================================================
+# onnxruntime>=1.17.0   # CPU ONNX Runtime (uncomment when using ONNX models)
+# onnxruntime-gpu>=1.17.0  # GPU variant (uncomment for CUDA acceleration)
+
+# =============================================================================
+# Optional: GPU-accelerated PyTorch (for YOLO CUDA mode)
+# =============================================================================
+# torch>=2.1.0          # uncomment and pin to your CUDA version
+# torchvision>=0.16.0
+
+# =============================================================================
+# Optional: InsightFace alternative for identity verification
+# =============================================================================
+# insightface>=0.7.3    # non-commercial licence – review before production use
+
+# =============================================================================
+# Development / testing utilities (not required for production)
+# =============================================================================
+pytest>=7.4.0
+pytest-cov>=4.1.0

@@ -1,0 +1,2 @@
+student_id,attempt_id,course_id,total_frames,valid_frames,suspicious_frames,percentage_suspicious,max_risk_score,mean_risk_score,top_reasons,incident_count,identity_stability_score,overall_risk_level,flagged_timeline
+student_002,attempt_5002,course_CS101,5,5,2,40.0,90.0,46.0,"[""NO_FACE"", ""PHONE""]",1,0.82,high,"[{""timestamp"": ""2024-06-10T09:00:10"", ""risk_score"": 90.0, ""reasons"": [""NO_FACE"", ""PHONE""]}, {""timestamp"": ""2024-06-10T09:00:15"", ""risk_score"": 50.0, ""reasons"": [""PHONE""]}]"

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Overview – Exam Proctoring Review{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between">
+  <div>
+    <h1><i class="bi bi-shield-check me-2"></i>Exam Proctoring Overview</h1>
+    <p>
+      {% if live_mode %}
+      Live stream from <code>{{ results_dir }}</code> &mdash; {{ total }} student attempt{{ 's' if total != 1 else '' }}
+      {% else %}
+      Results from <code>{{ results_dir }}</code> &mdash; {{ total }} student attempt{{ 's' if total != 1 else '' }}
+      {% endif %}
+    </p>
+  </div>
+  <div class="text-end">
+    <div class="mb-2">
+      <a href="/review-labels.csv" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-download me-1"></i>Export Human Labels
+      </a>
+    </div>
+    {% if courses %}
+    {% for c in courses %}
+    <span class="badge bg-secondary">{{ c }}</span>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num text-primary">{{ total }}</div>
+      <div class="stat-lbl">Total Students</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num text-danger">{{ high }}</div>
+      <div class="stat-lbl">High Risk</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num text-warning">{{ medium }}</div>
+      <div class="stat-lbl">Medium Risk</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num text-success">{{ low }}</div>
+      <div class="stat-lbl">Low Risk</div>
+    </div>
+  </div>
+</div>
+
+<!-- Student table -->
+<div class="student-table">
+  {% if students %}
+  <table class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Attempt</th>
+        <th>Quiz</th>
+        <th>Course</th>
+        <th>Risk Level</th>
+        <th>Mean Score</th>
+        <th>Suspicious</th>
+        <th>Incidents</th>
+        <th>Reviewed</th>
+        <th>Top Detections</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in students %}
+      {% set bc = risk_badge_class(s.overall_risk_level) %}
+      <tr onclick="location.href='/student/{{ s.student_id }}/{{ s.attempt_id }}'">
+        <td>
+          <span class="fw-semibold">{{ s.student_id }}</span>
+        </td>
+        <td class="text-muted">{{ s.attempt_id }}</td>
+        <td>
+          <div class="fw-semibold">{{ s.quiz_id or '—' }}</div>
+          {% if s.quiz_name %}
+          <div class="text-muted" style="font-size:.75rem;">{{ s.quiz_name }}</div>
+          {% endif %}
+        </td>
+        <td><span class="badge bg-secondary bg-opacity-75">{{ s.course_id }}</span></td>
+        <td>
+          <span class="badge bg-{{ bc }} text-{{ 'dark' if bc == 'warning' else 'white' }} px-3 py-2" style="font-size:.8rem;">
+            {% if bc == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-1"></i>{% endif %}
+            {{ s.overall_risk_level | upper }}
+          </span>
+        </td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div class="risk-bar-wrap">
+              <div class="risk-bar">
+                <div class="risk-bar-fill bg-{{ bc }}" style="width: {{ [s.mean_risk_score, 100] | min }}%"></div>
+              </div>
+            </div>
+            <span class="fw-semibold {% if s.mean_risk_score >= 40 %}text-danger{% elif s.mean_risk_score >= 20 %}text-warning{% else %}text-success{% endif %}">
+              {{ "%.1f" | format(s.mean_risk_score) }}
+            </span>
+          </div>
+        </td>
+        <td>
+          <span class="{{ 'text-danger fw-semibold' if s.percentage_suspicious > 50 else 'text-muted' }}">
+            {{ "%.0f" | format(s.percentage_suspicious) }}%
+          </span>
+          <small class="text-muted"> ({{ s.suspicious_frames }}/{{ s.total_frames }})</small>
+        </td>
+        <td>
+          {% if s.incident_count > 0 %}
+          <span class="badge bg-danger bg-opacity-15 text-danger border border-danger border-opacity-25">
+            {{ s.incident_count }} incident{{ 's' if s.incident_count != 1 else '' }}
+          </span>
+          {% else %}
+          <span class="text-muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s._reviewed_count %}
+          <span class="badge bg-primary bg-opacity-15 text-primary border border-primary border-opacity-25">
+            {{ s._reviewed_count }} labeled
+          </span>
+          {% else %}
+          <span class="text-muted">-</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.top_reasons is iterable and s.top_reasons is not string %}
+            {% for r in s.top_reasons[:3] %}
+            <span class="badge bg-{{ reason_badge_class(r) }} me-1">{{ r | replace('_', ' ') }}</span>
+            {% endfor %}
+          {% endif %}
+        </td>
+        <td class="text-end">
+          <a href="/student/{{ s.student_id }}/{{ s.attempt_id }}" class="btn btn-sm btn-outline-primary px-3">
+            Review <i class="bi bi-chevron-right"></i>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="p-5 text-center text-muted">
+    <i class="bi bi-folder2-open fs-1"></i>
+    <p class="mt-3">No results found in <code>{{ results_dir }}</code>.<br>
+    Run the analysis pipeline first.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

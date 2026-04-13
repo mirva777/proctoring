@@ -1,0 +1,147 @@
+# =============================================================================
+# Exam Proctoring Analysis – Configuration
+# =============================================================================
+# All values shown here are the built-in defaults.
+# Edit only the sections you want to override.
+
+# ---------------------------------------------------------------------------
+# Pipeline feature flags
+# ---------------------------------------------------------------------------
+pipeline:
+  enable_face_detection: true
+  enable_landmarks: true
+  enable_pose_gaze: true
+  enable_identity: true        # requires deepface + reference images
+  enable_objects: true         # requires ultralytics
+  enable_quality: true
+  enable_thumbnails: false     # write annotated thumbnails for flagged frames
+  suspicious_score_threshold: 30.0   # frames above this are "suspicious"
+  num_workers: 1               # set > 1 for multi-process (experimental)
+  batch_size: 8
+  image_max_dim: 1280          # downscale long edge to this before processing
+
+# ---------------------------------------------------------------------------
+# Detector backends
+# ---------------------------------------------------------------------------
+detectors:
+
+  face:
+    # Options: mediapipe | opencv_haar
+    # mediapipe: high accuracy, Apache 2.0 / ~5–15 ms CPU
+    # opencv_haar: baseline fallback, BSD licence / very fast
+    backend: mediapipe
+    runtime_fallback_to_mediapipe: true
+    runtime_fallback_to_haar: true   # retry with Haar if MediaPipe misses a visible face
+    mtcnn:
+      min_detection_confidence: 0.9
+      min_face_area_ratio: 0.02
+      dedupe_iou_threshold: 0.45
+      secondary_face_min_primary_ratio: 0.55
+    mediapipe:
+      delegate: auto            # auto | gpu | cpu (auto follows --device)
+      min_detection_confidence: 0.5
+      model_selection: 0      # 0 = short-range (webcam), 1 = full-range
+
+  landmarks:
+    # Options: mediapipe
+    backend: mediapipe
+    runtime_fallback_to_mediapipe: true
+    mtcnn:
+      min_detection_confidence: 0.9
+    mediapipe:
+      delegate: auto            # auto | gpu | cpu (auto follows --device)
+      max_num_faces: 2
+      min_detection_confidence: 0.5
+      min_tracking_confidence: 0.5
+
+  pose_gaze:
+    # Options: head_pose | none
+    # head_pose uses OpenCV solvePnP with MediaPipe 468-pt landmarks.
+    # Future: replace with a direct gaze model by adding a new backend class
+    #         that implements BasePoseGazeEstimator and updating this field.
+    backend: head_pose
+    head_pose:
+      moderate_yaw_deg: 20.0     # |yaw| > this → moderate look-away
+      severe_yaw_deg: 35.0       # |yaw| > this → severe look-away
+      pitch_warning_deg: 20.0    # |pitch| > this contributes to moderate flag
+      talking_ratio_threshold: 0.08         # mouth-open ratio above this may indicate speech
+      talking_likely_ratio_threshold: 0.12  # strong mouth-open ratio for likely talking
+      talking_delta_threshold: 0.018        # rise over personal baseline to flag possible talking
+      talking_likely_delta_threshold: 0.035 # rise over baseline to flag likely talking
+      talking_max_abs_yaw_deg: 35.0         # suppress talking proxy if the face is too rotated
+      talking_max_abs_pitch_deg: 35.0       # suppress talking proxy if the face is too tilted
+    # Example direct-gaze config (uncomment when backend is implemented):
+    # direct_gaze:
+    #   model_path: ./models/gaze_model.onnx
+    #   gaze_angle_threshold_deg: 15.0
+    #   confidence_threshold: 0.6
+
+  identity:
+    # Options: deepface | none
+    # deepface: MIT licence.  Underlying model weights (ArcFace/VGG-Face) are
+    #           non-commercial – review before production deployment.
+    # InsightFace backend can replace this by implementing BaseIdentityVerifier.
+    backend: deepface
+    deepface:
+      delegate: auto            # auto | gpu | cpu for DeepFace's internal face crop detector
+      model_name: ArcFace        # ArcFace | Facenet | Facenet512 | VGG-Face
+      distance_metric: cosine    # cosine | euclidean | euclidean_l2
+      mismatch_threshold: 0.4    # cosine distance above this = mismatch
+
+  objects:
+    # Options: yolo | none
+    # yolo: Ultralytics YOLOv8.  Licence: AGPL-3.0.
+    #       For commercial use, replace with YOLOv5 (MIT) or a custom detector
+    #       implementing BaseObjectDetector.
+    backend: yolo
+    yolo:
+      model_name: yolov8n       # yolov8n (fast) | yolov8s | yolov8m (accurate)
+      confidence: 0.35
+      device: auto              # auto | cpu | cuda | mps
+
+  quality:
+    backend: opencv
+    opencv:
+      blur_threshold: 60.0      # Laplacian variance below this → blurry
+      brightness_min: 30.0      # Mean pixel below this → too dark
+      brightness_max: 230.0     # Mean pixel above this → too bright
+      glare_threshold: 245      # Pixel value above this counts as glare
+      glare_fraction_max: 0.05  # Fraction of glare pixels in the central ROI above this → flag
+      roi_fraction: 0.6         # central crop used for blur/brightness/glare checks
+      max_global_glare_fraction: 0.2  # still flag if the whole frame is washed out
+
+# ---------------------------------------------------------------------------
+# Risk scoring weights (points added per event, capped at 100)
+# ---------------------------------------------------------------------------
+scoring:
+  weights:
+    no_face: 40.0
+    face_hidden: 55.0        # person body visible but face not detected
+    multi_face: 60.0
+    phone: 50.0
+    book_notes: 25.0
+    extra_person: 70.0
+    face_obstructed: 30.0
+    talking_possible: 20.0
+    talking_likely: 35.0
+    look_away_moderate: 20.0
+    look_away_severe: 35.0
+    identity_mismatch: 80.0
+    low_quality: 10.0
+
+# ---------------------------------------------------------------------------
+# Aggregation / temporal logic
+# ---------------------------------------------------------------------------
+aggregation:
+  suspicious_threshold: 30.0          # min risk score to include in incident search
+  incident_window_seconds: 30         # max gap between frames in one incident
+  min_frames_per_incident: 2          # fewer frames → not counted as incident
+  single_frame_high_risk_threshold: 50.0  # isolated strong frames still count as incidents
+  calibration_frames: 5               # first N valid frames used for head-pose baseline
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: INFO          # DEBUG | INFO | WARNING | ERROR
+  json: false          # true emits JSON lines to the log file

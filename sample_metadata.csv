@@ -1,0 +1,14 @@
+image_path,student_id,attempt_id,timestamp,course_id
+snapshots/student_001/frame_001.jpg,student_001,attempt_5001,2024-06-10T09:00:00,course_CS101
+snapshots/student_001/frame_002.jpg,student_001,attempt_5001,2024-06-10T09:00:05,course_CS101
+snapshots/student_001/frame_003.jpg,student_001,attempt_5001,2024-06-10T09:00:10,course_CS101
+snapshots/student_001/frame_004.jpg,student_001,attempt_5001,2024-06-10T09:00:15,course_CS101
+snapshots/student_001/frame_005.jpg,student_001,attempt_5001,2024-06-10T09:00:20,course_CS101
+snapshots/student_002/frame_001.jpg,student_002,attempt_5002,2024-06-10T09:00:00,course_CS101
+snapshots/student_002/frame_002.jpg,student_002,attempt_5002,2024-06-10T09:00:05,course_CS101
+snapshots/student_002/frame_003.jpg,student_002,attempt_5002,2024-06-10T09:00:10,course_CS101
+snapshots/student_002/frame_004.jpg,student_002,attempt_5002,2024-06-10T09:00:15,course_CS101
+snapshots/student_002/frame_005.jpg,student_002,attempt_5002,2024-06-10T09:00:20,course_CS101
+snapshots/student_003/frame_001.jpg,student_003,attempt_5003,2024-06-10T09:00:00,course_MATH201
+snapshots/student_003/frame_002.jpg,student_003,attempt_5003,2024-06-10T09:00:05,course_MATH201
+snapshots/student_003/frame_003.jpg,student_003,attempt_5003,2024-06-10T09:00:10,course_MATH201

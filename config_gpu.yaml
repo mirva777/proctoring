@@ -1,0 +1,61 @@
+# GPU-first config for the current WSL environment.
+#
+# Why this is hybrid:
+# - YOLO runs on CUDA.
+# - DeepFace/TensorFlow can use CUDA.
+# - MTCNN face detection runs on TensorFlow GPU and ships weights locally.
+# - MediaPipe landmarks stay enabled for dense mouth landmarks + 4x4 face transforms,
+#   but the pip wheel on this machine is CPU-only, so it falls back to CPU.
+
+pipeline:
+  enable_face_detection: true
+  enable_landmarks: true
+  enable_pose_gaze: true
+  enable_identity: true
+  enable_objects: true
+  enable_quality: true
+  enable_thumbnails: false
+  suspicious_score_threshold: 30.0
+  image_max_dim: 1280
+
+detectors:
+  face:
+    backend: mtcnn
+    runtime_fallback_to_mediapipe: true
+    runtime_fallback_to_haar: true
+    mtcnn:
+      min_detection_confidence: 0.9
+      min_face_area_ratio: 0.02
+      dedupe_iou_threshold: 0.45
+      secondary_face_min_primary_ratio: 0.55
+    mediapipe:
+      delegate: auto
+      min_detection_confidence: 0.5
+      model_selection: 0
+
+  landmarks:
+    backend: mediapipe
+    mediapipe:
+      delegate: auto
+      max_num_faces: 2
+      min_detection_confidence: 0.5
+      min_tracking_confidence: 0.5
+
+  identity:
+    backend: deepface
+    deepface:
+      delegate: auto
+      model_name: ArcFace
+      distance_metric: cosine
+      mismatch_threshold: 0.4
+
+  objects:
+    backend: yolo
+    yolo:
+      model_name: yolov8n
+      confidence: 0.35
+      device: auto
+
+logging:
+  level: INFO
+  json: false

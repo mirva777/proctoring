@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+{% block title %}{{ summary.student_id }} – Proctoring Review{% endblock %}
+
+{% block content %}
+{% set bc = risk_badge_class(summary.overall_risk_level) %}
+
+<!-- Back + header -->
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="/" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> All Students
+  </a>
+  <nav aria-label="breadcrumb" class="mb-0">
+    <ol class="breadcrumb mb-0" style="font-size:.85rem;">
+      <li class="breadcrumb-item"><a href="/">Overview</a></li>
+      <li class="breadcrumb-item active">{{ summary.student_id }}</li>
+      <li class="breadcrumb-item active">{{ summary.attempt_id }}</li>
+    </ol>
+  </nav>
+</div>
+
+<!-- Student banner -->
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px; overflow:hidden;">
+  <div class="card-body p-0">
+    <div class="d-flex align-items-stretch">
+      <!-- Risk colour stripe -->
+      <div class="bg-{{ bc }} d-flex align-items-center justify-content-center px-4" style="min-width:90px; {% if bc == 'warning' %}color:#000{% else %}color:#fff{% endif %}">
+        <div class="text-center">
+          <div style="font-size:2rem;">
+            {% if bc == 'danger' %}<i class="bi bi-exclamation-triangle-fill"></i>
+            {% elif bc == 'warning' %}<i class="bi bi-exclamation-circle-fill"></i>
+            {% else %}<i class="bi bi-check-circle-fill"></i>{% endif %}
+          </div>
+          <div style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; margin-top:4px;">
+            {{ summary.overall_risk_level }}
+          </div>
+        </div>
+      </div>
+      <!-- Info -->
+      <div class="p-4 flex-grow-1">
+        <h2 class="mb-1 fw-bold" style="font-size:1.35rem;">{{ summary.student_id }}</h2>
+        <p class="text-muted mb-3" style="font-size:.85rem;">
+          <i class="bi bi-journal-text me-1"></i>{{ summary.attempt_id }} &nbsp;&bull;&nbsp;
+          <i class="bi bi-mortarboard me-1"></i>{{ summary.course_id }}
+          {% if summary.quiz_id %}&nbsp;&bull;&nbsp;<i class="bi bi-ui-checks-grid me-1"></i>Quiz {{ summary.quiz_id }}{% endif %}
+          {% if summary.quiz_name %}&nbsp;&bull;&nbsp;{{ summary.quiz_name }}{% endif %}
+        </p>
+        <div class="row g-3">
+          <div class="col-auto">
+            <div class="stat-card px-3 py-2" style="min-width:90px;">
+              <div class="stat-num" style="font-size:1.6rem; color:{{ '#dc3545' if summary.mean_risk_score >= 40 else '#ffc107' if summary.mean_risk_score >= 20 else '#198754' }}">
+                {{ "%.1f" | format(summary.mean_risk_score) }}
+              </div>
+              <div class="stat-lbl">Mean Risk</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-card px-3 py-2" style="min-width:90px;">
+              <div class="stat-num" style="font-size:1.6rem;">{{ "%.0f" | format(summary.percentage_suspicious) }}%</div>
+              <div class="stat-lbl">Suspicious Frames</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-card px-3 py-2" style="min-width:90px;">
+              <div class="stat-num" style="font-size:1.6rem;">{{ summary.suspicious_frames }}/{{ summary.total_frames }}</div>
+              <div class="stat-lbl">Flagged / Total</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-card px-3 py-2" style="min-width:90px;">
+              <div class="stat-num" style="font-size:1.6rem;">{{ summary.incident_count }}</div>
+              <div class="stat-lbl">Incidents</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-card px-3 py-2" style="min-width:90px;">
+              <div class="stat-num" style="font-size:1.6rem;">{{ "%.2f" | format(summary.identity_stability_score) }}</div>
+              <div class="stat-lbl">Identity Score</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Top reasons -->
+      <div class="p-4 border-start" style="min-width:220px;">
+        <div class="text-muted mb-2" style="font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Detected Violations</div>
+        {% if summary.top_reasons is iterable and summary.top_reasons is not string %}
+          {% for r in summary.top_reasons %}
+          <div class="mb-1">
+            <span class="badge bg-{{ reason_badge_class(r) }} me-1 px-2 py-1" style="font-size:.78rem;">
+              {{ r | replace('_', ' ') }}
+            </span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <span class="text-muted">None</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if summary.question_overview %}
+<div class="card border-0 shadow-sm mb-4" style="border-radius:14px;">
+  <div class="card-body">
+    <div class="text-muted mb-2" style="font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600;">Questions Seen in This Attempt</div>
+    {% for q in summary.question_overview[:12] %}
+    <span class="badge bg-secondary bg-opacity-15 text-secondary border me-1 mb-1">{{ q }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Risk timeline chart -->
+<div class="chart-wrap">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-semibold" style="color:#1a1f36;">
+      <i class="bi bi-graph-up me-2"></i>Risk Score Timeline
+    </h5>
+    <span class="badge bg-secondary bg-opacity-15 text-secondary border" style="font-size:.75rem;">
+      Threshold: 30.0 pts
+    </span>
+  </div>
+  <canvas id="riskChart" height="80"></canvas>
+</div>
+
+<!-- Frame-by-frame evidence -->
+<h5 class="fw-semibold mb-3" style="color:#1a1f36;">
+  <i class="bi bi-camera-fill me-2"></i>Frame-by-Frame Evidence
+  <small class="text-muted fw-normal" style="font-size:.8rem;">({{ frames | length }} frames)</small>
+</h5>
+
+<!-- Filter bar -->
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+  <span class="text-muted" style="font-size:.82rem;">Filter:</span>
+  <button class="btn btn-sm btn-outline-danger active" id="btnAll" onclick="filterFrames('all', this)">All</button>
+  <button class="btn btn-sm btn-outline-danger" onclick="filterFrames('flagged', this)">Flagged Only</button>
+  <button class="btn btn-sm btn-outline-secondary" onclick="filterFrames('clean', this)">Clean Only</button>
+  <button class="btn btn-sm btn-outline-primary" onclick="filterFrames('reviewed', this)">Reviewed</button>
+  <button class="btn btn-sm btn-outline-primary" onclick="filterFrames('unreviewed', this)">Unreviewed</button>
+</div>
+
+<div class="frame-grid" id="frameGrid">
+  {% for f in frames %}
+  {% set score = f.get('risk_score', 0) %}
+  {% set flagged = score >= 30 %}
+  {% set flagged_med = score >= 20 and score < 30 %}
+  <div class="frame-card {{ 'flagged' if flagged else 'flagged-med' if flagged_med else '' }}"
+       data-flagged="{{ 'yes' if flagged else 'no' }}"
+       data-reviewed="{{ 'yes' if f._reviewed else 'no' }}">
+
+    <!-- Snapshot image -->
+    {% if f._img_exists %}
+    <img src="{{ f._img_url }}" alt="Frame {{ loop.index }}" loading="lazy"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="img-placeholder" style="display:none;">
+      <i class="bi bi-camera-video-off"></i>
+    </div>
+    {% else %}
+    <div class="img-placeholder">
+      <i class="bi bi-camera-video-off"></i>
+    </div>
+    {% endif %}
+
+    <!-- Score overlay on image -->
+    <div class="score-overlay">{{ "%.0f" | format(score) }}pts</div>
+
+    <div class="fc-body">
+      <div class="fc-time">
+        <i class="bi bi-clock me-1"></i>{{ f.get('timestamp', '')[-8:] }}
+        <span class="ms-2 text-muted">#{{ loop.index }}</span>
+        {% if f.get('source_log_id') %}
+        <span class="ms-2 text-muted">log {{ f.source_log_id }}</span>
+        {% endif %}
+      </div>
+
+      <!-- Detection flags as badges -->
+      <div class="fc-reasons">
+        {% if f._review_labels %}
+          {% for r in f._review_labels %}
+          <span class="badge human-review-badge bg-{{ review_badge_class(r) }} me-1 mb-1">Human: {{ r | replace('_', ' ') }}</span>
+          {% endfor %}
+        {% endif %}
+        {% if f.get('reasons') %}
+          {% for r in f.reasons %}
+          <span class="badge bg-{{ reason_badge_class(r) }} me-1 mb-1">{{ r | replace('_', ' ') }}</span>
+          {% endfor %}
+        {% else %}
+          <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-25 mb-1">
+            <i class="bi bi-check-circle me-1"></i>Clean
+          </span>
+        {% endif %}
+      </div>
+
+      <!-- Detection details -->
+      <div class="mt-2" style="font-size:.72rem; color:#6b7280; line-height:1.8;">
+        {% if f.get('quiz_page') or f.get('question_label') %}
+        <div>
+          <i class="bi bi-question-square me-1"></i>
+          Page: <b>{{ f.get('quiz_page', '—') or '—' }}</b>
+          {% if f.get('question_label') %}
+          &ensp;|&ensp; Question: <b>{{ f.question_label }}</b>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div>
+          <i class="bi bi-person-fill me-1"></i>
+          Faces: <b>{{ f.get('face_count', '?') }}</b>
+          &ensp;|&ensp;
+          Gaze: <b>{{ f.get('gaze_direction', '?') }}</b>
+          {% if f.get('severity', 'none') != 'none' %}
+          <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">{{ f.severity }}</span>
+          {% endif %}
+        </div>
+        {% if f.get('yaw') is not none %}
+        <div>
+          <i class="bi bi-arrows me-1"></i>
+          Yaw: <b>{{ "%.1f" | format(f.yaw | float) }}°</b>
+          &ensp; Pitch: <b>{{ "%.1f" | format(f.pitch | float(0)) }}°</b>
+        </div>
+        {% endif %}
+        <div>
+          {% if f.get('phone_detected') %}
+          <span class="badge bg-warning text-dark me-1"><i class="bi bi-phone-fill"></i> Phone</span>
+          {% endif %}
+          {% if f.get('extra_person_detected') %}
+          <span class="badge bg-danger me-1"><i class="bi bi-people-fill"></i> Extra Person</span>
+          {% endif %}
+          {% if f.get('face_count', 1) == 0 and f.get('person_detected') %}
+          <span class="badge bg-danger me-1"><i class="bi bi-person-slash"></i> Face Hidden</span>
+          {% endif %}
+          {% if f.get('book_detected') %}
+          <span class="badge bg-warning text-dark me-1"><i class="bi bi-book-fill"></i> Book</span>
+          {% endif %}
+          {% if f.get('low_quality') %}
+          <span class="badge bg-secondary me-1"><i class="bi bi-image-alt"></i> Low Quality</span>
+          {% endif %}
+          {% if f.get('identity_mismatch') %}
+          <span class="badge bg-danger me-1"><i class="bi bi-person-x-fill"></i> ID Mismatch</span>
+          {% endif %}
+          {% if f.get('talking_flag') %}
+          <span class="badge bg-danger me-1"><i class="bi bi-chat-dots-fill"></i> Talking</span>
+          {% endif %}
+        </div>
+        <div>
+          Blur: <b>{{ "%.0f" | format(f.get('blur_score', 0)) }}</b>
+          &ensp; Brightness: <b>{{ "%.0f" | format(f.get('brightness_score', 0)) }}</b>
+        </div>
+      </div>
+
+      <div class="review-panel mt-3"
+           data-student-id="{{ f.student_id }}"
+           data-attempt-id="{{ f.attempt_id }}"
+           data-image-path="{{ f.image_path }}"
+           data-source-log-id="{{ f.get('source_log_id', '') }}"
+           data-frame-key="{{ f._review_key }}">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="text-muted review-title">Human Review Labels</div>
+          <span class="review-save-status {{ 'text-success' if f._reviewed else 'text-muted' }}">
+            {{ 'Saved' if f._reviewed else 'Not labeled' }}
+          </span>
+        </div>
+        <div class="review-check-grid">
+          {% for option in review_label_options %}
+          <label class="review-check">
+            <input class="form-check-input review-checkbox"
+                   type="checkbox"
+                   value="{{ option.id }}"
+                   {% if option.id in f._review_labels %}checked{% endif %}>
+            <span>{{ option.label }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <textarea class="form-control form-control-sm review-notes mt-2"
+                  rows="2"
+                  placeholder="Optional note about this frame">{{ f._review_notes }}</textarea>
+        <div class="d-flex align-items-center justify-content-between mt-2 gap-2 flex-wrap">
+          <div class="review-note-hint text-muted">Select one or more labels, then save.</div>
+          <button class="btn btn-sm btn-primary" type="button" onclick="saveReview(this)">
+            <i class="bi bi-save me-1"></i>Save Labels
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Error frames section, if any -->
+{% set error_frames = frames | selectattr('error') | list %}
+{% if error_frames %}
+<div class="mt-4">
+  <h5 class="fw-semibold text-danger mb-2">
+    <i class="bi bi-bug-fill me-2"></i>Frames with Errors ({{ error_frames | length }})
+  </h5>
+  <div class="card border-danger border-opacity-25">
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Frame</th><th>Timestamp</th><th>Error</th></tr></thead>
+        <tbody>
+          {% for f in error_frames %}
+          <tr>
+            <td class="text-muted" style="font-size:.8rem;">{{ f.image_path }}</td>
+            <td class="text-muted" style="font-size:.8rem;">{{ f.timestamp }}</td>
+            <td class="text-danger" style="font-size:.8rem;">{{ f.error }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Risk score timeline chart ─────────────────────────────────────────────
+const labels  = {{ chart_labels | safe }};
+const scores  = {{ chart_scores | safe }};
+const colors  = {{ chart_colors | safe }};
+const threshold = {{ threshold }};
+
+const ctx = document.getElementById('riskChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Risk Score',
+        data: scores,
+        backgroundColor: colors,
+        borderRadius: 4,
+        order: 2,
+      },
+      {
+        label: 'Threshold',
+        data: Array(labels.length).fill(threshold),
+        type: 'line',
+        borderColor: 'rgba(108,143,255,0.7)',
+        borderDash: [6, 4],
+        pointRadius: 0,
+        borderWidth: 1.5,
+        fill: false,
+        order: 1,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => 'Time: ' + items[0].label,
+          label: (item) => item.datasetIndex === 0
+            ? ' Risk score: ' + item.raw.toFixed(1)
+            : ' Threshold: ' + item.raw,
+        }
+      }
+    },
+    scales: {
+      y: {
+        min: 0, max: 105,
+        grid: { color: '#f0f1f5' },
+        ticks: { color: '#9ca3af', font: { size: 11 } }
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#9ca3af', font: { size: 10 } }
+      }
+    }
+  }
+});
+
+// ── Frame filter ──────────────────────────────────────────────────────────
+function filterFrames(mode, btn) {
+  document.querySelectorAll('#frameGrid .frame-card').forEach(card => {
+    const isFlagged = card.dataset.flagged === 'yes';
+    const isReviewed = card.dataset.reviewed === 'yes';
+    if (mode === 'flagged') card.style.display = isFlagged ? '' : 'none';
+    else if (mode === 'clean') card.style.display = !isFlagged ? '' : 'none';
+    else if (mode === 'reviewed') card.style.display = isReviewed ? '' : 'none';
+    else if (mode === 'unreviewed') card.style.display = !isReviewed ? '' : 'none';
+    else card.style.display = '';
+  });
+  document.querySelectorAll('[onclick^="filterFrames"]').forEach(b =>
+    b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function renderHumanBadges(frameCard, labels) {
+  const container = frameCard.querySelector('.fc-reasons');
+  if (!container) return;
+  container.querySelectorAll('.human-review-badge').forEach(el => el.remove());
+  const firstSystemBadge = container.querySelector('.badge');
+  labels.forEach((label) => {
+    const badge = document.createElement('span');
+    badge.className = 'badge human-review-badge me-1 mb-1 bg-primary';
+    badge.textContent = `Human: ${label.replaceAll('_', ' ')}`;
+    badge.classList.remove('bg-primary');
+    if (label === 'PHONE' || label === 'BOOK_NOTES' || label === 'TALKING') badge.classList.add('bg-warning', 'text-dark');
+    else if (label === 'FALSE_POSITIVE') badge.classList.add('bg-success');
+    else if (label === 'NO_FACE') badge.classList.add('bg-dark');
+    else if (label === 'LOW_QUALITY' || label === 'LOOK_AWAY') badge.classList.add('bg-secondary');
+    else badge.classList.add('bg-danger');
+    if (firstSystemBadge) container.insertBefore(badge, firstSystemBadge);
+    else container.appendChild(badge);
+  });
+}
+
+async function saveReview(btn) {
+  const panel = btn.closest('.review-panel');
+  const frameCard = btn.closest('.frame-card');
+  const status = panel.querySelector('.review-save-status');
+  const labels = Array.from(panel.querySelectorAll('.review-checkbox:checked')).map(el => el.value);
+  const notes = panel.querySelector('.review-notes').value;
+  const payload = {
+    student_id: panel.dataset.studentId,
+    attempt_id: panel.dataset.attemptId,
+    image_path: panel.dataset.imagePath,
+    source_log_id: panel.dataset.sourceLogId || null,
+    labels,
+    notes,
+  };
+
+  btn.disabled = true;
+  status.textContent = 'Saving...';
+  status.className = 'review-save-status text-muted';
+  try {
+    const response = await fetch('/api/review-labels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || 'Save failed');
+    }
+    const result = await response.json();
+    const reviewed = (result.labels || []).length > 0 || (result.notes || '').trim() !== '';
+    frameCard.dataset.reviewed = reviewed ? 'yes' : 'no';
+    status.textContent = reviewed ? 'Saved' : 'Cleared';
+    status.className = reviewed ? 'review-save-status text-success' : 'review-save-status text-muted';
+    renderHumanBadges(frameCard, result.labels || []);
+  } catch (err) {
+    status.textContent = 'Save failed';
+    status.className = 'review-save-status text-danger';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}
