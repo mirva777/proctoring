@@ -1,0 +1,16 @@
+# Native Windows runtime used by scripts/setup_windows.ps1.
+# DeepFace/TensorFlow is intentionally not installed here; use config_test.yaml
+# or set detectors.identity.backend: none unless you install identity tooling separately.
+numpy
+opencv-python
+tqdm
+pyyaml
+mediapipe
+ultralytics
+flask
+python-dotenv
+psycopg2-binary
+requests
+paramiko
+pytest
+pytest-cov

@@ -6,6 +6,7 @@ __pycache__/
 dist/
 build/
 .venv/
+.venv-win/
 venv/
 
 # Testing / coverage
@@ -41,6 +42,7 @@ scratch_redesign_check/
 wsl_run_real_results/
 wsl_run_real_results_gpu/
 wsl_run_real_results_mtcnn_gpu/
+windows_smoke_results*/
 live_moodle_export/
 live_runtime/
 backups/
