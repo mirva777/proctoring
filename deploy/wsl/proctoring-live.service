@@ -1,0 +1,20 @@
+[Unit]
+Description=Exam proctoring live Moodle analyzer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proctoring
+Group=proctoring
+WorkingDirectory=/opt/proctoring
+EnvironmentFile=/etc/proctoring/proctoring.env
+ExecStart=/opt/proctoring/deploy/wsl/run_live.sh /etc/proctoring/proctoring.env
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

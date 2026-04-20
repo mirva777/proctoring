@@ -91,6 +91,11 @@ proctoring/
 
 ## Quickstart
 
+For Windows Server + WSL deployment with systemd services, use
+[`deploy/wsl/README.md`](deploy/wsl/README.md). The deployment path runs the
+live Moodle poller as `proctoring-live.service` and the dashboard as
+`proctoring-dashboard.service`.
+
 ### 1. Create and activate a virtual environment
 
 ```bash

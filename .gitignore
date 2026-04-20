@@ -39,6 +39,7 @@ real_moodle_export/
 analysis.log
 *.log
 scratch_redesign_check/
+scratch_*/
 wsl_run_real_results/
 wsl_run_real_results_gpu/
 wsl_run_real_results_mtcnn_gpu/

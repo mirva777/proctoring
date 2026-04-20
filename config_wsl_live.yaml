@@ -1,0 +1,95 @@
+# Stable WSL live deployment config.
+#
+# This keeps the production service dependable:
+# - YOLO runs on CUDA when PyTorch CUDA is installed and --device auto/cuda is used.
+# - MediaPipe face and landmarks fall back to CPU when the pip wheel has no GPU delegate.
+# - DeepFace identity is disabled by default to avoid TensorFlow/CUDA drift on servers.
+
+pipeline:
+  enable_face_detection: true
+  enable_landmarks: true
+  enable_pose_gaze: true
+  enable_identity: false
+  enable_objects: true
+  enable_quality: true
+  enable_thumbnails: false
+  suspicious_score_threshold: 30.0
+  image_max_dim: 1280
+
+detectors:
+  face:
+    backend: mediapipe
+    runtime_fallback_to_haar: true
+    mediapipe:
+      delegate: auto
+      min_detection_confidence: 0.5
+      model_selection: 0
+
+  landmarks:
+    backend: mediapipe
+    mediapipe:
+      delegate: auto
+      max_num_faces: 2
+      min_detection_confidence: 0.5
+      min_tracking_confidence: 0.5
+
+  pose_gaze:
+    backend: head_pose
+    head_pose:
+      moderate_yaw_deg: 20.0
+      severe_yaw_deg: 35.0
+      pitch_warning_deg: 20.0
+      talking_ratio_threshold: 0.08
+      talking_likely_ratio_threshold: 0.12
+      talking_delta_threshold: 0.018
+      talking_likely_delta_threshold: 0.035
+      talking_max_abs_yaw_deg: 35.0
+      talking_max_abs_pitch_deg: 35.0
+
+  identity:
+    backend: none
+
+  objects:
+    backend: yolo
+    yolo:
+      model_name: yolov8n
+      confidence: 0.35
+      device: auto
+
+  quality:
+    backend: opencv
+    opencv:
+      blur_threshold: 60.0
+      brightness_min: 30.0
+      brightness_max: 230.0
+      glare_threshold: 245
+      glare_fraction_max: 0.05
+      roi_fraction: 0.6
+      max_global_glare_fraction: 0.2
+
+scoring:
+  weights:
+    no_face: 40.0
+    face_hidden: 55.0
+    multi_face: 60.0
+    phone: 50.0
+    book_notes: 25.0
+    extra_person: 70.0
+    face_obstructed: 30.0
+    talking_possible: 20.0
+    talking_likely: 35.0
+    look_away_moderate: 20.0
+    look_away_severe: 35.0
+    identity_mismatch: 80.0
+    low_quality: 10.0
+
+aggregation:
+  suspicious_threshold: 30.0
+  incident_window_seconds: 30
+  min_frames_per_incident: 2
+  single_frame_high_risk_threshold: 50.0
+  calibration_frames: 5
+
+logging:
+  level: INFO
+  json: false

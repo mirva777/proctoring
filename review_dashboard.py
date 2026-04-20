@@ -193,6 +193,54 @@ def default_review_db_path(results_dir: Path) -> Path:
     return Path("review_data") / results_dir.name / "review_labels.sqlite3"
 
 
+def configure_dashboard(
+    *,
+    results: str | Path = "results",
+    snapshots: str | Path = "test_data",
+    live_db: str | Path | None = None,
+    review_db: str | Path | None = None,
+) -> None:
+    """Configure global dashboard paths for CLI and WSGI entry points."""
+    global RESULTS_DIR, SNAPSHOTS_DIR, LIVE_STORE, REVIEW_STORE, LIVE_MODE
+
+    RESULTS_DIR = Path(results).resolve()
+    SNAPSHOTS_DIR = Path(snapshots).resolve()
+    LIVE_MODE = bool(live_db)
+    LIVE_STORE = LiveResultStore(live_db) if live_db else None
+    if LIVE_STORE is not None:
+        RESULTS_DIR = Path(live_db).resolve().parent
+
+    if review_db:
+        review_db_path = Path(review_db).resolve()
+    else:
+        review_db_path = default_review_db_path(RESULTS_DIR).resolve()
+        legacy_review_db = RESULTS_DIR / "review_labels.sqlite3"
+        if not review_db_path.exists() and legacy_review_db.exists():
+            review_db_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(legacy_review_db, review_db_path)
+    REVIEW_STORE = ReviewLabelStore(review_db_path)
+
+    if LIVE_STORE is None and not RESULTS_DIR.exists():
+        raise FileNotFoundError(f"Results directory not found: {RESULTS_DIR}")
+
+
+def create_app(
+    *,
+    results: str | Path = "results",
+    snapshots: str | Path = "test_data",
+    live_db: str | Path | None = None,
+    review_db: str | Path | None = None,
+) -> Flask:
+    """WSGI factory used by Gunicorn/systemd deployments."""
+    configure_dashboard(
+        results=results,
+        snapshots=snapshots,
+        live_db=live_db,
+        review_db=review_db,
+    )
+    return app
+
+
 app.jinja_env.globals["risk_badge_class"] = risk_badge_class
 app.jinja_env.globals["reason_badge_class"] = reason_badge_class
 app.jinja_env.globals["review_badge_class"] = review_badge_class
@@ -411,8 +459,6 @@ def export_review_labels_csv():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    global RESULTS_DIR, SNAPSHOTS_DIR, LIVE_STORE, REVIEW_STORE, LIVE_MODE
-
     parser = argparse.ArgumentParser(description="Exam proctoring review dashboard")
     parser.add_argument("--results", default="results",
                         help="Directory containing student_summary.csv etc.")
@@ -433,24 +479,15 @@ def main():
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
-    RESULTS_DIR = Path(args.results).resolve()
-    SNAPSHOTS_DIR = Path(args.snapshots).resolve()
-    LIVE_MODE = bool(args.live_db)
-    LIVE_STORE = LiveResultStore(args.live_db) if args.live_db else None
-    if LIVE_STORE is not None:
-        RESULTS_DIR = Path(args.live_db).resolve().parent
-    if args.review_db:
-        review_db_path = Path(args.review_db).resolve()
-    else:
-        review_db_path = default_review_db_path(RESULTS_DIR).resolve()
-        legacy_review_db = RESULTS_DIR / "review_labels.sqlite3"
-        if not review_db_path.exists() and legacy_review_db.exists():
-            review_db_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(legacy_review_db, review_db_path)
-    REVIEW_STORE = ReviewLabelStore(review_db_path)
-
-    if LIVE_STORE is None and not RESULTS_DIR.exists():
-        print(f"Results directory not found: {RESULTS_DIR}")
+    try:
+        configure_dashboard(
+            results=args.results,
+            snapshots=args.snapshots,
+            live_db=args.live_db,
+            review_db=args.review_db,
+        )
+    except FileNotFoundError as exc:
+        print(str(exc))
         raise SystemExit(1)
 
     print(f"\n  Exam Proctoring Review Dashboard")
@@ -459,7 +496,8 @@ def main():
     if LIVE_STORE is not None:
         print(f"  Live DB : {Path(args.live_db).resolve()}")
         print("  Mode    : realtime SQLite")
-    print(f"  Review DB: {review_db_path.resolve()}")
+    if REVIEW_STORE is not None:
+        print(f"  Review DB: {REVIEW_STORE.db_path.resolve()}")
     print(f"\n  Open: http://{args.host}:{args.port}\n")
 
     app.run(host=args.host, port=args.port, debug=args.debug)

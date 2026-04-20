@@ -1,0 +1,16 @@
+# Stable WSL/Linux deployment runtime.
+# Uses YOLO on CUDA when a CUDA PyTorch wheel is installed by deploy/wsl/install.sh.
+numpy>=1.24.0
+opencv-python>=4.8.0
+tqdm>=4.66.0
+pyyaml>=6.0
+mediapipe>=0.10.0
+ultralytics>=8.0.0
+flask>=3.0
+gunicorn>=21.2
+python-dotenv>=1.0
+psycopg2-binary>=2.9
+requests>=2.28
+paramiko>=4.0.0
+pytest>=7.4.0
+pytest-cov>=4.1.0

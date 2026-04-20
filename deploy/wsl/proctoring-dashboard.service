@@ -1,0 +1,18 @@
+[Unit]
+Description=Exam proctoring review dashboard
+After=network-online.target proctoring-live.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proctoring
+Group=proctoring
+WorkingDirectory=/opt/proctoring
+EnvironmentFile=/etc/proctoring/proctoring.env
+ExecStart=/opt/proctoring/deploy/wsl/run_dashboard.sh /etc/proctoring/proctoring.env
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

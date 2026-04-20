@@ -10,6 +10,7 @@ pyyaml>=6.0
 # Face detection & landmarks (default backend)
 # =============================================================================
 mediapipe>=0.10.0
+mtcnn>=1.0.0            # optional TensorFlow-backed face detector used by config_gpu.yaml
 
 # =============================================================================
 # Object detection (default backend – AGPL-3.0 licence)
@@ -33,6 +34,8 @@ paramiko>=4.0.0         # SSH tunnel + SFTP bridge for remote Moodle access
 # Review dashboard
 # =============================================================================
 flask>=3.0
+gunicorn>=21.2          # production WSGI server for Linux/WSL dashboard service
+python-dotenv>=1.0      # convenient local env loading for Flask tooling
 
 # =============================================================================
 # Optional: faster deep-learning runtime
