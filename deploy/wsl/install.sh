@@ -66,7 +66,7 @@ if [[ "$INSTALL_CUDA_TORCH" == "1" ]]; then
   "$APP_DIR/.venv/bin/python" -m pip install --index-url "$TORCH_CUDA_INDEX" torch torchvision
 fi
 
-"$APP_DIR/.venv/bin/python" "$APP_DIR/download_models.py" || true
+(cd "$APP_DIR" && "$APP_DIR/.venv/bin/python" "$APP_DIR/download_models.py") || true
 
 chmod +x "$APP_DIR"/deploy/wsl/*.sh
 chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
