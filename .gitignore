@@ -44,6 +44,7 @@ wsl_run_real_results_gpu/
 wsl_run_real_results_mtcnn_gpu/
 windows_smoke_results*/
 live_moodle_export/
+live_moodle_export_*/
 live_runtime/
 backups/
 server_dumps/

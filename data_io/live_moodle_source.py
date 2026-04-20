@@ -13,7 +13,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from data_io.ssh_moodle_bridge import ManagedSSHBridge
@@ -98,8 +98,17 @@ class LiveMoodleSource:
         self.prefix = db_config.table_prefix
         self.output_dir = Path(output_dir)
         self.snapshots_dir = self.output_dir / "snapshots"
-        self.moodledata_dir = Path(moodledata_dir).resolve() if moodledata_dir else None
         self.ssh_bridge = ssh_bridge
+        self.remote_moodledata_dir: PurePosixPath | None = None
+        self.moodledata_dir: Path | None = None
+        if moodledata_dir:
+            if ssh_bridge is not None:
+                # Keep remote Linux paths POSIX on Windows; Path.resolve() would
+                # turn /var/www/... into C:/var/www/... before SFTP.
+                remote_path = str(moodledata_dir).replace("\\", "/")
+                self.remote_moodledata_dir = PurePosixPath(remote_path)
+            else:
+                self.moodledata_dir = Path(moodledata_dir).resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.snapshots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -162,7 +171,7 @@ class LiveMoodleSource:
         Returns a path relative to ``output_dir`` or None if the Moodle file is
         missing locally.
         """
-        if self.moodledata_dir is None or not snapshot.contenthash:
+        if (self.moodledata_dir is None and self.remote_moodledata_dir is None) or not snapshot.contenthash:
             logger.warning(
                 "Skipping snapshot %s because --moodledata was not provided or contenthash is missing",
                 snapshot.source_log_id,
@@ -178,7 +187,7 @@ class LiveMoodleSource:
         if dest_path.exists() and dest_path.stat().st_size > 0:
             return dest_rel.as_posix()
 
-        if src_path.exists():
+        if isinstance(src_path, Path) and src_path.exists():
             shutil.copy2(src_path, dest_path)
             return dest_rel.as_posix()
 
@@ -487,10 +496,15 @@ class LiveMoodleSource:
             filesize=int(row[17] or 0),
         )
 
-    def _contenthash_to_path(self, contenthash: str) -> Path:
-        assert self.moodledata_dir is not None
+    def _contenthash_to_path(self, contenthash: str) -> Path | PurePosixPath:
+        base_path: Path | PurePosixPath
+        if self.remote_moodledata_dir is not None:
+            base_path = self.remote_moodledata_dir
+        else:
+            assert self.moodledata_dir is not None
+            base_path = self.moodledata_dir
         return (
-            self.moodledata_dir
+            base_path
             / "filedir"
             / contenthash[:2]
             / contenthash[2:4]
