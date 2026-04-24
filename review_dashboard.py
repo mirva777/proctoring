@@ -418,6 +418,13 @@ def build_openapi_spec() -> dict[str, Any]:
                 "timestamp": "2026-04-20T13:06:58",
                 "snapshot_path": "course_16/quiz_51/ps2124-11487/quiz51_attempt18365/18365.jpg",
                 "snapshot_url": "/snapshot/course_16/quiz_51/ps2124-11487/quiz51_attempt18365/18365.jpg",
+                "source_snapshot_path": "/var/www/moodledata/filedir/2f/8b/2f8b7e0a9c4d5f6a1234567890abcdef12345678",
+                "source_snapshot": {
+                    "webcampicture": "/pluginfile.php/16/quizaccess_proctoring/picture/18365.jpg",
+                    "filename": "18365.jpg",
+                    "contenthash": "2f8b7e0a9c4d5f6a1234567890abcdef12345678",
+                    "moodledata_path": "/var/www/moodledata/filedir/2f/8b/2f8b7e0a9c4d5f6a1234567890abcdef12345678",
+                },
                 "risk_score": 100.0,
                 "reasons": ["FACE_HIDDEN", "EXTRA_PERSON"],
                 "analysis_flags": {
@@ -782,8 +789,19 @@ def build_openapi_spec() -> dict[str, Any]:
                     "properties": {
                         "frame_key": {"type": "string"},
                         "timestamp": {"type": "string"},
-                        "snapshot_path": {"type": "string"},
-                        "snapshot_url": {"type": "string"},
+                        "snapshot_path": {
+                            "type": "string",
+                            "description": "Path of the cached snapshot relative to this proctoring app's snapshots directory.",
+                        },
+                        "snapshot_url": {
+                            "type": "string",
+                            "description": "Dashboard URL for the cached local snapshot copy.",
+                        },
+                        "source_snapshot_path": {
+                            "type": "string",
+                            "description": "Original Moodle server moodledata/filedir path, when available from live ingestion.",
+                        },
+                        "source_snapshot": {"$ref": "#/components/schemas/SourceSnapshot"},
                         "risk_score": {"type": "number"},
                         "reasons": {"type": "array", "items": {"type": "string"}},
                         "analysis_flags": {
@@ -806,6 +824,21 @@ def build_openapi_spec() -> dict[str, Any]:
                         "review": {"$ref": "#/components/schemas/FrameReview"},
                         "student": {"$ref": "#/components/schemas/FrameStudent"},
                         "exam": {"$ref": "#/components/schemas/FrameExam"},
+                    },
+                },
+                "SourceSnapshot": {
+                    "type": "object",
+                    "properties": {
+                        "webcampicture": {
+                            "type": "string",
+                            "description": "Original Moodle database webcampicture value.",
+                        },
+                        "filename": {"type": "string"},
+                        "contenthash": {"type": "string"},
+                        "moodledata_path": {
+                            "type": "string",
+                            "description": "Absolute path in the source Moodle server's moodledata/filedir store.",
+                        },
                     },
                 },
                 "FrameReview": {
@@ -1141,11 +1174,19 @@ def _paginate(items: list[dict[str, Any]], *, limit: int, offset: int) -> list[d
 
 def _build_frame_api_payload(frame: dict[str, Any], review: dict[str, Any] | None = None) -> dict[str, Any]:
     review = review or {}
+    source_moodledata_path = frame.get("source_moodledata_path") or ""
     return {
         "frame_key": frame_review_key(frame),
         "timestamp": frame.get("timestamp", ""),
         "snapshot_path": frame.get("image_path", ""),
         "snapshot_url": url_for("serve_snapshot", image_path=frame.get("image_path", ""), _external=False),
+        "source_snapshot_path": source_moodledata_path,
+        "source_snapshot": {
+            "webcampicture": frame.get("source_webcampicture") or "",
+            "filename": frame.get("source_filename") or "",
+            "contenthash": frame.get("source_contenthash") or "",
+            "moodledata_path": source_moodledata_path,
+        },
         "risk_score": float(frame.get("risk_score") or 0.0),
         "reasons": list(frame.get("reasons") or []),
         "analysis_flags": _frame_analysis_flags(frame),

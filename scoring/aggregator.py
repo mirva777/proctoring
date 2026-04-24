@@ -61,6 +61,10 @@ class FrameRecord:
     question_name: str = ""
     question_label: str = ""
     source_log_id: int | None = None
+    source_webcampicture: str = ""
+    source_filename: str = ""
+    source_contenthash: str = ""
+    source_moodledata_path: str = ""
     error: str | None = None
 
 

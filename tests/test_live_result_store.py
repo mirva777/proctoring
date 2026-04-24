@@ -25,6 +25,10 @@ def _record(
         question_name="Binary Search",
         question_label="Q7: Binary Search",
         source_log_id=source_log_id,
+        source_webcampicture=f"/pluginfile.php/1782/quizaccess_proctoring/picture/{source_log_id}.png",
+        source_filename=f"{source_log_id}.png",
+        source_contenthash=f"{source_log_id:040x}",
+        source_moodledata_path=f"/var/www/moodledata/filedir/00/00/{source_log_id:040x}",
         face_count=1,
         look_away_flag=True,
         severity="moderate",
@@ -66,6 +70,8 @@ def test_live_result_store_roundtrip_and_summary(tmp_path):
     assert frames[0]["quiz_id"] == "88195"
     assert frames[0]["question_label"] == "Q7: Binary Search"
     assert frames[0]["source_log_id"] == 101
+    assert frames[0]["source_filename"] == "101.png"
+    assert frames[0]["source_moodledata_path"].endswith("/0000000000000000000000000000000000000065")
 
     summaries = store.fetch_summaries()
     assert len(summaries) == 1

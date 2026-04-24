@@ -75,6 +75,10 @@ class LiveResultStore:
                     question_slot TEXT,
                     question_name TEXT,
                     question_label TEXT,
+                    source_webcampicture TEXT,
+                    source_filename TEXT,
+                    source_contenthash TEXT,
+                    source_moodledata_path TEXT,
                     face_count INTEGER,
                     look_away_flag INTEGER,
                     severity TEXT,
@@ -140,6 +144,16 @@ class LiveResultStore:
                 );
                 """
             )
+            self._ensure_columns(
+                conn,
+                "frame_results",
+                {
+                    "source_webcampicture": "TEXT",
+                    "source_filename": "TEXT",
+                    "source_contenthash": "TEXT",
+                    "source_moodledata_path": "TEXT",
+                },
+            )
             conn.execute(
                 """
                 INSERT OR IGNORE INTO pipeline_state
@@ -148,6 +162,20 @@ class LiveResultStore:
                 """,
                 (_utc_now_iso(),),
             )
+
+    @staticmethod
+    def _ensure_columns(
+        conn: sqlite3.Connection,
+        table_name: str,
+        columns: dict[str, str],
+    ) -> None:
+        existing = {
+            str(row["name"])
+            for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
+        for column_name, column_type in columns.items():
+            if column_name not in existing:
+                conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
 
     def upsert_frame(self, record: FrameRecord) -> None:
         row = self._record_to_db_row(record)
@@ -158,6 +186,8 @@ class LiveResultStore:
                     frame_key, source_log_id, image_path, student_id, attempt_id,
                     timestamp, course_id, quiz_id, quiz_name, quiz_page,
                     question_id, question_slot, question_name, question_label,
+                    source_webcampicture, source_filename, source_contenthash,
+                    source_moodledata_path,
                     face_count, look_away_flag, severity, identity_mismatch,
                     identity_similarity, phone_detected, extra_person_detected,
                     book_detected, face_obstructed, talking_flag, talking_severity,
@@ -169,6 +199,8 @@ class LiveResultStore:
                     :frame_key, :source_log_id, :image_path, :student_id, :attempt_id,
                     :timestamp, :course_id, :quiz_id, :quiz_name, :quiz_page,
                     :question_id, :question_slot, :question_name, :question_label,
+                    :source_webcampicture, :source_filename, :source_contenthash,
+                    :source_moodledata_path,
                     :face_count, :look_away_flag, :severity, :identity_mismatch,
                     :identity_similarity, :phone_detected, :extra_person_detected,
                     :book_detected, :face_obstructed, :talking_flag, :talking_severity,
@@ -191,6 +223,10 @@ class LiveResultStore:
                     question_slot=excluded.question_slot,
                     question_name=excluded.question_name,
                     question_label=excluded.question_label,
+                    source_webcampicture=excluded.source_webcampicture,
+                    source_filename=excluded.source_filename,
+                    source_contenthash=excluded.source_contenthash,
+                    source_moodledata_path=excluded.source_moodledata_path,
                     face_count=excluded.face_count,
                     look_away_flag=excluded.look_away_flag,
                     severity=excluded.severity,
@@ -408,6 +444,10 @@ class LiveResultStore:
             "question_slot": record.question_slot,
             "question_name": record.question_name,
             "question_label": record.question_label,
+            "source_webcampicture": record.source_webcampicture,
+            "source_filename": record.source_filename,
+            "source_contenthash": record.source_contenthash,
+            "source_moodledata_path": record.source_moodledata_path,
             "face_count": record.face_count,
             "look_away_flag": int(bool(record.look_away_flag)),
             "severity": record.severity,
@@ -486,6 +526,10 @@ class LiveResultStore:
             question_name=row["question_name"] or "",
             question_label=row["question_label"] or "",
             source_log_id=row["source_log_id"],
+            source_webcampicture=row["source_webcampicture"] or "",
+            source_filename=row["source_filename"] or "",
+            source_contenthash=row["source_contenthash"] or "",
+            source_moodledata_path=row["source_moodledata_path"] or "",
             error=row["error"],
         )
 

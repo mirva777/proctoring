@@ -158,6 +158,18 @@ def _failed_record(snapshot, image_path: str, error: str) -> FrameRecord:
     )
 
 
+def _attach_source_snapshot_fields(
+    record: FrameRecord,
+    source: LiveMoodleSource,
+    snapshot,
+) -> FrameRecord:
+    record.source_webcampicture = snapshot.webcampicture
+    record.source_filename = snapshot.filename
+    record.source_contenthash = snapshot.contenthash
+    record.source_moodledata_path = source.source_file_path_for_snapshot(snapshot)
+    return record
+
+
 def _process_one_batch(
     *,
     source: LiveMoodleSource,
@@ -231,6 +243,7 @@ def _process_one_batch(
                     record.mouth_open_ratio,
                 )
 
+        record = _attach_source_snapshot_fields(record, source, snapshot)
         store.upsert_frame(record)
         touched_attempts.add((snapshot.student_id, snapshot.attempt_id))
         max_log_id = max(max_log_id, snapshot.source_log_id)

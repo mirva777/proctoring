@@ -207,6 +207,12 @@ class LiveMoodleSource:
         logger.warning("Moodle file missing for log_id=%s: %s", snapshot.source_log_id, src_path)
         return None
 
+    def source_file_path_for_snapshot(self, snapshot: MoodleLiveSnapshot) -> str:
+        """Return the original Moodle ``moodledata/filedir`` path for a snapshot."""
+        if not snapshot.contenthash:
+            return ""
+        return self._contenthash_to_path(snapshot.contenthash).as_posix()
+
     @staticmethod
     def _query_params(
         last_source_log_id: int,

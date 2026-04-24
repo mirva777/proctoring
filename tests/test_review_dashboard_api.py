@@ -33,6 +33,10 @@ def _record(
         question_name="Binary Search",
         question_label="Q7: Binary Search",
         source_log_id=source_log_id,
+        source_webcampicture=f"/pluginfile.php/1782/quizaccess_proctoring/picture/{source_log_id}.png",
+        source_filename=f"{source_log_id}.png",
+        source_contenthash=f"{source_log_id:040x}",
+        source_moodledata_path=f"/var/www/moodledata/filedir/00/00/{source_log_id:040x}",
         face_count=1,
         look_away_flag=look_away_flag,
         severity="moderate" if look_away_flag else "none",
@@ -137,6 +141,8 @@ def test_results_api_filters_by_flag_and_returns_nested_metadata(tmp_path):
     assert frame["exam"]["quiz_id"] == "88195"
     assert frame["analysis_flags"]["phone"] is True
     assert "PHONE" in frame["analysis_flag_names"]
+    assert frame["source_snapshot_path"].endswith("/0000000000000000000000000000000000000065")
+    assert frame["source_snapshot"]["filename"] == "101.png"
     assert frame["review"]["labels"] == ["PHONE"]
 
 
@@ -201,6 +207,8 @@ def test_openapi_and_swagger_docs_routes(tmp_path):
     example = result_examples["specificStudentAttempt"]["value"]
     assert example["attempts"][0]["student_id"] == "ps2124-11487"
     assert example["frames"][0]["snapshot_url"].startswith("/snapshot/")
+    assert example["frames"][0]["source_snapshot_path"].startswith("/var/www/moodledata/filedir/")
+    assert example["frames"][0]["source_snapshot"]["filename"] == "18365.jpg"
     assert example["frames"][0]["analysis_flags"]["extra_person"] is True
 
     docs_response = client.get("/docs")
