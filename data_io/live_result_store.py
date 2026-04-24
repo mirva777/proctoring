@@ -267,6 +267,60 @@ class LiveResultStore:
         self.upsert_summary(summary)
         return summary
 
+    def fetch_source_log_ids_missing_source_fields(self, limit: int = 1000) -> list[int]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT source_log_id
+                FROM frame_results
+                WHERE source_log_id IS NOT NULL
+                  AND (
+                    COALESCE(source_moodledata_path, '') = ''
+                    OR COALESCE(source_contenthash, '') = ''
+                    OR COALESCE(source_filename, '') = ''
+                  )
+                ORDER BY source_log_id ASC
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        return [int(row["source_log_id"]) for row in rows]
+
+    def update_source_snapshot_fields(self, updates: Iterable[dict[str, Any]]) -> int:
+        rows = []
+        now = _utc_now_iso()
+        for update in updates:
+            source_log_id = update.get("source_log_id")
+            if source_log_id is None:
+                continue
+            rows.append(
+                {
+                    "source_log_id": int(source_log_id),
+                    "source_webcampicture": update.get("source_webcampicture", ""),
+                    "source_filename": update.get("source_filename", ""),
+                    "source_contenthash": update.get("source_contenthash", ""),
+                    "source_moodledata_path": update.get("source_moodledata_path", ""),
+                    "updated_at": now,
+                }
+            )
+        if not rows:
+            return 0
+
+        with self._connect() as conn:
+            conn.executemany(
+                """
+                UPDATE frame_results
+                SET source_webcampicture = :source_webcampicture,
+                    source_filename = :source_filename,
+                    source_contenthash = :source_contenthash,
+                    source_moodledata_path = :source_moodledata_path,
+                    updated_at = :updated_at
+                WHERE source_log_id = :source_log_id
+                """,
+                rows,
+            )
+        return len(rows)
+
     def upsert_summary(self, summary: StudentSummary) -> None:
         with self._connect() as conn:
             conn.execute(

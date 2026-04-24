@@ -164,6 +164,45 @@ class LiveMoodleSource:
 
         return [self._row_to_snapshot(row) for row in rows]
 
+    def fetch_snapshots_by_log_ids(self, source_log_ids: list[int]) -> list[MoodleLiveSnapshot]:
+        """Fetch Moodle snapshot metadata for existing processed log IDs."""
+        unique_ids = sorted({int(log_id) for log_id in source_log_ids if log_id is not None})
+        if not unique_ids:
+            return []
+
+        params = {"source_log_ids": unique_ids}
+        with self.connect() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute(
+                        self._sql_with_question_metadata(None, None, by_source_log_ids=True),
+                        params,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Legacy quiz_slots.questionid source backfill query failed (%s); retrying Moodle 4 question_references mapping.",
+                        exc,
+                    )
+                    conn.rollback()
+                    try:
+                        cur.execute(
+                            self._sql_with_question_references(None, None, by_source_log_ids=True),
+                            params,
+                        )
+                    except Exception as exc_2:
+                        logger.warning(
+                            "question_references source backfill query failed (%s); retrying with page-only metadata.",
+                            exc_2,
+                        )
+                        conn.rollback()
+                        cur.execute(
+                            self._sql_without_question_metadata(None, None, by_source_log_ids=True),
+                            params,
+                        )
+                rows = cur.fetchall()
+
+        return [self._row_to_snapshot(row) for row in rows]
+
     def materialize_snapshot(self, snapshot: MoodleLiveSnapshot) -> Optional[str]:
         """
         Copy one snapshot into ``<output_dir>/snapshots/<student>/<attempt>/...``.
@@ -230,8 +269,15 @@ class LiveMoodleSource:
             params["quiz_id"] = int(quiz_id)
         return params
 
-    def _sql_with_question_metadata(self, course_id: int | None, quiz_id: int | None) -> str:
-        where_sql = self._where_sql(course_id, quiz_id)
+    def _sql_with_question_metadata(
+        self,
+        course_id: int | None,
+        quiz_id: int | None,
+        *,
+        by_source_log_ids: bool = False,
+    ) -> str:
+        where_sql = self._where_sql(course_id, quiz_id, by_source_log_ids=by_source_log_ids)
+        limit_sql = "" if by_source_log_ids else "LIMIT %(limit)s"
         p = self.prefix
         return f"""
             SELECT
@@ -303,11 +349,18 @@ class LiveMoodleSource:
                 qa.id, l.status, l.quizpage, l.timemodified,
                 l.webcampicture, f.contenthash, f.filesize
             ORDER BY l.id ASC
-            LIMIT %(limit)s
+            {limit_sql}
         """
 
-    def _sql_without_question_metadata(self, course_id: int | None, quiz_id: int | None) -> str:
-        where_sql = self._where_sql(course_id, quiz_id)
+    def _sql_without_question_metadata(
+        self,
+        course_id: int | None,
+        quiz_id: int | None,
+        *,
+        by_source_log_ids: bool = False,
+    ) -> str:
+        where_sql = self._where_sql(course_id, quiz_id, by_source_log_ids=by_source_log_ids)
+        limit_sql = "" if by_source_log_ids else "LIMIT %(limit)s"
         p = self.prefix
         return f"""
             SELECT
@@ -353,11 +406,18 @@ class LiveMoodleSource:
                AND f.filename = SUBSTRING(COALESCE(l.webcampicture, '') FROM '[^/]+$')
             WHERE {where_sql}
             ORDER BY l.id ASC
-            LIMIT %(limit)s
+            {limit_sql}
         """
 
-    def _sql_with_question_references(self, course_id: int | None, quiz_id: int | None) -> str:
-        where_sql = self._where_sql(course_id, quiz_id)
+    def _sql_with_question_references(
+        self,
+        course_id: int | None,
+        quiz_id: int | None,
+        *,
+        by_source_log_ids: bool = False,
+    ) -> str:
+        where_sql = self._where_sql(course_id, quiz_id, by_source_log_ids=by_source_log_ids)
+        limit_sql = "" if by_source_log_ids else "LIMIT %(limit)s"
         p = self.prefix
         return f"""
             SELECT
@@ -447,13 +507,18 @@ class LiveMoodleSource:
                 qa.id, l.status, l.quizpage, l.timemodified,
                 l.webcampicture, f.contenthash, f.filesize
             ORDER BY l.id ASC
-            LIMIT %(limit)s
+            {limit_sql}
         """
 
     @staticmethod
-    def _where_sql(course_id: int | None, quiz_id: int | None) -> str:
+    def _where_sql(
+        course_id: int | None,
+        quiz_id: int | None,
+        *,
+        by_source_log_ids: bool = False,
+    ) -> str:
         clauses = [
-            "l.id > %(last_source_log_id)s",
+            "l.id = ANY(%(source_log_ids)s)" if by_source_log_ids else "l.id > %(last_source_log_id)s",
             "COALESCE(l.webcampicture, '') <> ''",
             "COALESCE(l.deletionprogress, 0) = 0",
         ]

@@ -101,3 +101,32 @@ def test_live_result_store_replaces_same_source_log_id(tmp_path):
     summary = store.fetch_summary("student_1", "quiz10_attempt99")
     assert summary is not None
     assert summary["max_risk_score"] == 80.0
+
+
+def test_live_result_store_backfills_source_fields(tmp_path):
+    store = LiveResultStore(tmp_path / "live.sqlite3")
+    record = _record(source_log_id=12)
+    record.source_webcampicture = ""
+    record.source_filename = ""
+    record.source_contenthash = ""
+    record.source_moodledata_path = ""
+    store.upsert_frame(record)
+
+    assert store.fetch_source_log_ids_missing_source_fields() == [12]
+    updated = store.update_source_snapshot_fields(
+        [
+            {
+                "source_log_id": 12,
+                "source_webcampicture": "/pluginfile.php/picture/12.png",
+                "source_filename": "12.png",
+                "source_contenthash": f"{12:040x}",
+                "source_moodledata_path": f"/var/www/moodledata/filedir/00/00/{12:040x}",
+            }
+        ]
+    )
+    assert updated == 1
+    assert store.fetch_source_log_ids_missing_source_fields() == []
+
+    frame = store.fetch_frame_dicts("student_1", "quiz10_attempt99")[0]
+    assert frame["source_webcampicture"] == "/pluginfile.php/picture/12.png"
+    assert frame["source_filename"] == "12.png"

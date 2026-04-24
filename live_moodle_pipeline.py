@@ -170,6 +170,48 @@ def _attach_source_snapshot_fields(
     return record
 
 
+def _backfill_source_snapshot_fields(
+    *,
+    source: LiveMoodleSource,
+    store: LiveResultStore,
+    batch_size: int,
+) -> None:
+    total_updated = 0
+    while True:
+        missing_log_ids = store.fetch_source_log_ids_missing_source_fields(limit=batch_size)
+        if not missing_log_ids:
+            break
+
+        snapshots = source.fetch_snapshots_by_log_ids(missing_log_ids)
+        updates = []
+        for snapshot in snapshots:
+            if not snapshot.contenthash:
+                continue
+            updates.append(
+                {
+                    "source_log_id": snapshot.source_log_id,
+                    "source_webcampicture": snapshot.webcampicture,
+                    "source_filename": snapshot.filename,
+                    "source_contenthash": snapshot.contenthash,
+                    "source_moodledata_path": source.source_file_path_for_snapshot(snapshot),
+                }
+            )
+
+        updated_count = store.update_source_snapshot_fields(updates)
+        total_updated += updated_count
+        if updated_count:
+            logger.info("Backfilled source snapshot paths for %d existing frames", updated_count)
+        if updated_count < len(missing_log_ids):
+            logger.warning(
+                "Source snapshot backfill stopped with %d unresolved log ids in the current batch",
+                len(missing_log_ids) - updated_count,
+            )
+            break
+
+    if total_updated:
+        logger.info("Backfilled source snapshot paths for %d total existing frames", total_updated)
+
+
 def _process_one_batch(
     *,
     source: LiveMoodleSource,
@@ -334,6 +376,13 @@ def run_live_pipeline(args: argparse.Namespace) -> int:
             ssh_bridge.close()
         return 1
 
+    if not args.disable_source_backfill:
+        _backfill_source_snapshot_fields(
+            source=source,
+            store=store,
+            batch_size=args.source_backfill_batch_size,
+        )
+
     image_max_dim = cfg["pipeline"].get("image_max_dim", 1280)
     last_log_id = store.get_last_source_log_id()
     logger.info("Resuming from source log id %s", last_log_id)
@@ -421,6 +470,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--poll-seconds", type=float, default=2.0, help="Sleep time when no new rows appear.")
     parser.add_argument("--batch-limit", type=int, default=250, help="Maximum rows fetched per polling cycle.")
+    parser.add_argument(
+        "--source-backfill-batch-size",
+        type=int,
+        default=5000,
+        help="Rows per batch for filling source Moodle paths on existing live results.",
+    )
+    parser.add_argument(
+        "--disable-source-backfill",
+        action="store_true",
+        help="Skip filling source Moodle paths on existing live results at startup.",
+    )
     parser.add_argument(
         "--device",
         default="auto",
