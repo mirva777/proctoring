@@ -72,6 +72,8 @@ API_FLAG_OPTIONS = [
     "IDENTITY_MISMATCH",
 ]
 API_DEFAULT_SUSPICIOUS_THRESHOLD = 30.0
+SWAGGER_UI_CSS_URL = "https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+SWAGGER_UI_BUNDLE_URL = "https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data loading helpers
@@ -254,6 +256,494 @@ def create_app(
         review_db=review_db,
     )
     return app
+
+
+def _openapi_parameter(
+    name: str,
+    description: str,
+    *,
+    schema: dict[str, Any] | None = None,
+    style: str | None = None,
+    explode: bool | None = None,
+) -> dict[str, Any]:
+    parameter: dict[str, Any] = {
+        "name": name,
+        "in": "query",
+        "required": False,
+        "description": description,
+        "schema": schema or {"type": "string"},
+    }
+    if style is not None:
+        parameter["style"] = style
+    if explode is not None:
+        parameter["explode"] = explode
+    return parameter
+
+
+def build_openapi_spec() -> dict[str, Any]:
+    results_query_parameters = [
+        _openapi_parameter("course_id", "Filter by one or more course IDs.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("quiz_id", "Filter by one or more quiz IDs.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("student_id", "Filter by one or more student IDs.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("attempt_id", "Filter by one or more attempt IDs.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("question_id", "Filter by Moodle question ID.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("question_slot", "Filter by Moodle question slot.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("question_label", "Filter by question label text.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("quiz_page", "Filter by quiz page number.", schema={"type": "array", "items": {"type": "string"}}, style="form", explode=True),
+        _openapi_parameter("risk_level", "Filter attempts by overall risk level.", schema={"type": "array", "items": {"type": "string", "enum": ["low", "medium", "high"]}}, style="form", explode=True),
+        _openapi_parameter("min_risk", "Minimum frame risk score.", schema={"type": "number"}),
+        _openapi_parameter("max_risk", "Maximum frame risk score.", schema={"type": "number"}),
+        _openapi_parameter("flag", "Filter by detected analysis flags.", schema={"type": "array", "items": {"type": "string", "enum": API_FLAG_OPTIONS}}, style="form", explode=True),
+        _openapi_parameter("review_label", "Filter by human review labels.", schema={"type": "array", "items": {"type": "string", "enum": sorted(REVIEW_LABEL_IDS)}}, style="form", explode=True),
+        _openapi_parameter("flag_mode", "Use 'any' or 'all' matching for flag/review_label filters.", schema={"type": "string", "enum": ["any", "all"], "default": "any"}),
+        _openapi_parameter("search", "Free-text search across student/exam/question/reasons/review notes."),
+        _openapi_parameter("start", "Include only frames with timestamp >= this value.", schema={"type": "string", "example": "2026-04-21T10:00:00"}),
+        _openapi_parameter("end", "Include only frames with timestamp <= this value.", schema={"type": "string", "example": "2026-04-21T10:30:00"}),
+        _openapi_parameter("only_suspicious", "When true, only return frames with risk >= suspicious threshold.", schema={"type": "boolean"}),
+        _openapi_parameter("has_review_label", "When true/false, require the frame to have or not have review labels/notes.", schema={"type": "boolean"}),
+        _openapi_parameter("has_error", "When true/false, require the frame to have or not have an analysis error.", schema={"type": "boolean"}),
+        _openapi_parameter("include_frames", "Include frame payloads in the response.", schema={"type": "boolean", "default": True}),
+        _openapi_parameter("include_attempts", "Include attempt summary payloads in the response.", schema={"type": "boolean", "default": True}),
+        _openapi_parameter("frame_limit", "Maximum number of frames returned. Use 0 for no limit.", schema={"type": "integer", "default": 250, "minimum": 0}),
+        _openapi_parameter("frame_offset", "Frame pagination offset.", schema={"type": "integer", "default": 0, "minimum": 0}),
+        _openapi_parameter("attempt_limit", "Maximum number of attempts returned. Use 0 for no limit.", schema={"type": "integer", "default": 100, "minimum": 0}),
+        _openapi_parameter("attempt_offset", "Attempt pagination offset.", schema={"type": "integer", "default": 0, "minimum": 0}),
+        _openapi_parameter("sort_by", "Frame sort field.", schema={"type": "string", "enum": ["timestamp", "risk_score"], "default": "timestamp"}),
+        _openapi_parameter("sort_order", "Frame sort direction.", schema={"type": "string", "enum": ["asc", "desc"], "default": "desc"}),
+    ]
+
+    results_filter_properties = {
+        "course_id": {"type": "array", "items": {"type": "string"}},
+        "quiz_id": {"type": "array", "items": {"type": "string"}},
+        "student_id": {"type": "array", "items": {"type": "string"}},
+        "attempt_id": {"type": "array", "items": {"type": "string"}},
+        "question_id": {"type": "array", "items": {"type": "string"}},
+        "question_slot": {"type": "array", "items": {"type": "string"}},
+        "question_label": {"type": "array", "items": {"type": "string"}},
+        "quiz_page": {"type": "array", "items": {"type": "string"}},
+        "risk_level": {"type": "array", "items": {"type": "string", "enum": ["low", "medium", "high"]}},
+        "min_risk": {"type": "number"},
+        "max_risk": {"type": "number"},
+        "flag": {"type": "array", "items": {"type": "string", "enum": API_FLAG_OPTIONS}},
+        "review_label": {"type": "array", "items": {"type": "string", "enum": sorted(REVIEW_LABEL_IDS)}},
+        "flag_mode": {"type": "string", "enum": ["any", "all"], "default": "any"},
+        "search": {"type": "string"},
+        "start": {"type": "string"},
+        "end": {"type": "string"},
+        "only_suspicious": {"type": "boolean"},
+        "has_review_label": {"type": "boolean"},
+        "has_error": {"type": "boolean"},
+        "include_frames": {"type": "boolean", "default": True},
+        "include_attempts": {"type": "boolean", "default": True},
+        "frame_limit": {"type": "integer", "default": 250, "minimum": 0},
+        "frame_offset": {"type": "integer", "default": 0, "minimum": 0},
+        "attempt_limit": {"type": "integer", "default": 100, "minimum": 0},
+        "attempt_offset": {"type": "integer", "default": 0, "minimum": 0},
+        "sort_by": {"type": "string", "enum": ["timestamp", "risk_score"], "default": "timestamp"},
+        "sort_order": {"type": "string", "enum": ["asc", "desc"], "default": "desc"},
+    }
+
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Exam Proctoring Review API",
+            "version": "1.0.0",
+            "description": (
+                "HTTP API for exam proctoring analysis results, human review labels, "
+                "and live pipeline state."
+            ),
+        },
+        "servers": [
+            {"url": request.host_url.rstrip("/")}
+        ],
+        "tags": [
+            {"name": "Results", "description": "Read filtered proctoring results and evidence frames."},
+            {"name": "Review", "description": "Store or export human review labels."},
+            {"name": "Live", "description": "Inspect realtime worker state."},
+        ],
+        "paths": {
+            "/api/live/state": {
+                "get": {
+                    "tags": ["Live"],
+                    "summary": "Get live pipeline state",
+                    "responses": {
+                        "200": {
+                            "description": "Realtime worker counters and last processed log ID.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/LiveStateResponse"}
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/results": {
+                "get": {
+                    "tags": ["Results"],
+                    "summary": "List filtered result attempts and frames",
+                    "parameters": results_query_parameters,
+                    "responses": {
+                        "200": {
+                            "description": "Filtered attempt summaries and frame-level evidence.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
+                                }
+                            },
+                        },
+                        "400": {
+                            "description": "Invalid filter parameter.",
+                        },
+                    },
+                },
+                "post": {
+                    "tags": ["Results"],
+                    "summary": "List filtered results using a JSON request body",
+                    "requestBody": {
+                        "required": False,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "exam": {
+                                            "type": "object",
+                                            "properties": {
+                                                "course_id": {"type": "string"},
+                                                "quiz_id": {"type": "string"},
+                                                "question_id": {"type": "string"},
+                                                "question_slot": {"type": "string"},
+                                            },
+                                        },
+                                        "student": {
+                                            "type": "object",
+                                            "properties": {
+                                                "student_id": {"type": "string"},
+                                                "attempt_id": {"type": "string"},
+                                            },
+                                        },
+                                        **results_filter_properties,
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Filtered attempt summaries and frame-level evidence.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
+                                }
+                            },
+                        },
+                        "400": {
+                            "description": "Invalid filter body.",
+                        },
+                    },
+                },
+            },
+            "/api/results/{student_id}/{attempt_id}": {
+                "get": {
+                    "tags": ["Results"],
+                    "summary": "Get results for a single student attempt",
+                    "parameters": [
+                        {
+                            "name": "student_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "attempt_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        *results_query_parameters,
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Attempt-scoped result payload.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
+                                }
+                            },
+                        }
+                    },
+                },
+                "post": {
+                    "tags": ["Results"],
+                    "summary": "Get results for a single student attempt with a JSON body",
+                    "parameters": [
+                        {
+                            "name": "student_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "attempt_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "requestBody": {
+                        "required": False,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": results_filter_properties,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Attempt-scoped result payload.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
+                                }
+                            },
+                        }
+                    },
+                },
+            },
+            "/api/review-labels": {
+                "post": {
+                    "tags": ["Review"],
+                    "summary": "Create or update human review labels for one frame",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ReviewLabelRequest"}
+                            }
+                        },
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Saved review labels.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/ReviewLabelResponse"}
+                                }
+                            },
+                        },
+                        "400": {"description": "Invalid review payload."},
+                    },
+                }
+            },
+            "/review-labels.csv": {
+                "get": {
+                    "tags": ["Review"],
+                    "summary": "Export all stored review labels as CSV",
+                    "responses": {
+                        "200": {
+                            "description": "CSV download of review labels."
+                        }
+                    },
+                }
+            },
+        },
+        "components": {
+            "schemas": {
+                "ResultsResponse": {
+                    "type": "object",
+                    "properties": {
+                        "filters": {"type": "object"},
+                        "meta": {"$ref": "#/components/schemas/ResultsMeta"},
+                        "attempts": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/ResultAttempt"},
+                        },
+                        "frames": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/ResultFrame"},
+                        },
+                    },
+                },
+                "ResultsMeta": {
+                    "type": "object",
+                    "properties": {
+                        "live_mode": {"type": "boolean"},
+                        "results_dir": {"type": "string"},
+                        "snapshots_dir": {"type": "string"},
+                        "available_flags": {"type": "array", "items": {"type": "string"}},
+                        "available_review_labels": {"type": "array", "items": {"type": "string"}},
+                        "total_matching_attempts": {"type": "integer"},
+                        "returned_attempts": {"type": "integer"},
+                        "attempt_limit": {"type": "integer"},
+                        "attempt_offset": {"type": "integer"},
+                        "total_matching_frames": {"type": "integer"},
+                        "returned_frames": {"type": "integer"},
+                        "frame_limit": {"type": "integer"},
+                        "frame_offset": {"type": "integer"},
+                        "sort_by": {"type": "string"},
+                        "sort_order": {"type": "string"},
+                    },
+                },
+                "ResultAttempt": {
+                    "type": "object",
+                    "properties": {
+                        "student_id": {"type": "string"},
+                        "attempt_id": {"type": "string"},
+                        "course_id": {"type": "string"},
+                        "quiz_id": {"type": "string"},
+                        "quiz_name": {"type": "string"},
+                        "overall_risk_level": {"type": "string"},
+                        "total_frames": {"type": "integer"},
+                        "valid_frames": {"type": "integer"},
+                        "suspicious_frames": {"type": "integer"},
+                        "percentage_suspicious": {"type": "number"},
+                        "max_risk_score": {"type": "number"},
+                        "mean_risk_score": {"type": "number"},
+                        "top_reasons": {"type": "array", "items": {"type": "string"}},
+                        "incident_count": {"type": "integer"},
+                        "question_overview": {"type": "array", "items": {"type": "string"}},
+                        "matched_frame_count": {"type": "integer"},
+                        "reviewed_frame_count": {"type": "integer"},
+                        "updated_at": {"type": "string"},
+                    },
+                },
+                "ResultFrame": {
+                    "type": "object",
+                    "properties": {
+                        "frame_key": {"type": "string"},
+                        "timestamp": {"type": "string"},
+                        "snapshot_path": {"type": "string"},
+                        "snapshot_url": {"type": "string"},
+                        "risk_score": {"type": "number"},
+                        "reasons": {"type": "array", "items": {"type": "string"}},
+                        "analysis_flags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "boolean"},
+                        },
+                        "analysis_flag_names": {"type": "array", "items": {"type": "string"}},
+                        "face_count": {"type": "integer"},
+                        "look_away_severity": {"type": "string"},
+                        "talking_severity": {"type": "string"},
+                        "talking_confidence": {"type": "number", "nullable": True},
+                        "identity_similarity": {"type": "number", "nullable": True},
+                        "yaw": {"type": "number", "nullable": True},
+                        "pitch": {"type": "number", "nullable": True},
+                        "roll": {"type": "number", "nullable": True},
+                        "gaze_direction": {"type": "string", "nullable": True},
+                        "pose_method": {"type": "string", "nullable": True},
+                        "error": {"type": "string", "nullable": True},
+                        "source_log_id": {"type": "integer", "nullable": True},
+                        "review": {"$ref": "#/components/schemas/FrameReview"},
+                        "student": {"$ref": "#/components/schemas/FrameStudent"},
+                        "exam": {"$ref": "#/components/schemas/FrameExam"},
+                    },
+                },
+                "FrameReview": {
+                    "type": "object",
+                    "properties": {
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                        "notes": {"type": "string"},
+                        "updated_at": {"type": "string"},
+                        "reviewed": {"type": "boolean"},
+                    },
+                },
+                "FrameStudent": {
+                    "type": "object",
+                    "properties": {
+                        "student_id": {"type": "string"},
+                        "attempt_id": {"type": "string"},
+                    },
+                },
+                "FrameExam": {
+                    "type": "object",
+                    "properties": {
+                        "course_id": {"type": "string"},
+                        "quiz_id": {"type": "string"},
+                        "quiz_name": {"type": "string"},
+                        "quiz_page": {"type": "string"},
+                        "question_id": {"type": "string"},
+                        "question_slot": {"type": "string"},
+                        "question_name": {"type": "string"},
+                        "question_label": {"type": "string"},
+                    },
+                },
+                "ReviewLabelRequest": {
+                    "type": "object",
+                    "required": ["student_id", "attempt_id", "image_path"],
+                    "properties": {
+                        "student_id": {"type": "string"},
+                        "attempt_id": {"type": "string"},
+                        "image_path": {"type": "string"},
+                        "source_log_id": {"type": "integer", "nullable": True},
+                        "labels": {"type": "array", "items": {"type": "string", "enum": sorted(REVIEW_LABEL_IDS)}},
+                        "notes": {"type": "string"},
+                    },
+                },
+                "ReviewLabelResponse": {
+                    "type": "object",
+                    "properties": {
+                        "ok": {"type": "boolean"},
+                        "frame_key": {"type": "string"},
+                        "labels": {"type": "array", "items": {"type": "string"}},
+                        "notes": {"type": "string"},
+                    },
+                },
+                "LiveStateResponse": {
+                    "type": "object",
+                    "properties": {
+                        "live_mode": {"type": "boolean"},
+                        "last_source_log_id": {"type": "integer"},
+                        "last_updated_at": {"type": "string"},
+                        "frame_count": {"type": "integer"},
+                        "summary_count": {"type": "integer"},
+                    },
+                },
+            }
+        },
+    }
+
+
+def build_swagger_ui_html() -> str:
+    openapi_url = url_for("openapi_spec", _external=False)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Exam Proctoring API Docs</title>
+  <link rel="stylesheet" href="{SWAGGER_UI_CSS_URL}">
+  <style>
+    body {{
+      margin: 0;
+      background: #f6f8fb;
+    }}
+    .topbar {{
+      display: none;
+    }}
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="{SWAGGER_UI_BUNDLE_URL}"></script>
+  <script>
+    window.onload = function () {{
+      window.ui = SwaggerUIBundle({{
+        url: "{openapi_url}",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        displayRequestDuration: true,
+        persistAuthorization: true,
+        docExpansion: 'list',
+        filter: true
+      }});
+    }};
+  </script>
+</body>
+</html>"""
 
 
 def load_review_label_map() -> dict[str, dict[str, Any]]:
@@ -900,6 +1390,16 @@ def serve_snapshot(image_path: str):
         log.warning("Snapshot not found: %s (snapshots_dir=%s)", full, SNAPSHOTS_DIR)
         abort(404)
     return send_from_directory(str(SNAPSHOTS_DIR), image_path)
+
+
+@app.route("/openapi.json")
+def openapi_spec():
+    return jsonify(build_openapi_spec())
+
+
+@app.route("/docs")
+def swagger_docs():
+    return Response(build_swagger_ui_html(), mimetype="text/html")
 
 
 @app.route("/api/live/state")

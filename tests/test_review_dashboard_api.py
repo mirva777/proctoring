@@ -176,3 +176,30 @@ def test_results_api_accepts_post_body_and_attempt_shortcut_route(tmp_path):
     assert shortcut_payload["filters"]["attempt_id"] == ["quiz10_attempt99"]
     assert shortcut_payload["meta"]["total_matching_attempts"] == 1
     assert len(shortcut_payload["frames"]) == 2
+
+
+def test_openapi_and_swagger_docs_routes(tmp_path):
+    live_db = tmp_path / "live.sqlite3"
+    snapshots = tmp_path / "snapshots"
+    snapshots.mkdir()
+
+    store = LiveResultStore(live_db)
+    _seed_store(store)
+
+    app = create_app(live_db=live_db, snapshots=snapshots)
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    spec_response = client.get("/openapi.json")
+    assert spec_response.status_code == 200
+    spec = spec_response.get_json()
+    assert spec["openapi"] == "3.0.3"
+    assert spec["info"]["title"] == "Exam Proctoring Review API"
+    assert "/api/results" in spec["paths"]
+    assert "/api/review-labels" in spec["paths"]
+
+    docs_response = client.get("/docs")
+    assert docs_response.status_code == 200
+    html = docs_response.get_data(as_text=True)
+    assert "SwaggerUIBundle" in html
+    assert "/openapi.json" in html
