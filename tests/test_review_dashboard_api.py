@@ -197,6 +197,11 @@ def test_openapi_and_swagger_docs_routes(tmp_path):
     assert spec["info"]["title"] == "Exam Proctoring Review API"
     assert "/api/results" in spec["paths"]
     assert "/api/review-labels" in spec["paths"]
+    result_examples = spec["paths"]["/api/results/{student_id}/{attempt_id}"]["get"]["responses"]["200"]["content"]["application/json"]["examples"]
+    example = result_examples["specificStudentAttempt"]["value"]
+    assert example["attempts"][0]["student_id"] == "ps2124-11487"
+    assert example["frames"][0]["snapshot_url"].startswith("/snapshot/")
+    assert example["frames"][0]["analysis_flags"]["extra_person"] is True
 
     docs_response = client.get("/docs")
     assert docs_response.status_code == 200

@@ -342,6 +342,190 @@ def build_openapi_spec() -> dict[str, Any]:
         "sort_by": {"type": "string", "enum": ["timestamp", "risk_score"], "default": "timestamp"},
         "sort_order": {"type": "string", "enum": ["asc", "desc"], "default": "desc"},
     }
+    example_results_request = {
+        "exam": {"course_id": "16", "quiz_id": "51"},
+        "student": {"student_id": "ps2124-11487"},
+        "flag": ["LOOK_AWAY", "PHONE"],
+        "flag_mode": "all",
+        "min_risk": 40,
+        "frame_limit": 50,
+        "sort_by": "risk_score",
+        "sort_order": "desc",
+    }
+    example_attempt_results_response = {
+        "filters": {
+            "course_id": [],
+            "quiz_id": [],
+            "student_id": ["ps2124-11487"],
+            "attempt_id": ["quiz51_attempt18365"],
+            "question_id": [],
+            "question_slot": [],
+            "question_label": [],
+            "quiz_page": [],
+            "risk_level": [],
+            "min_risk": None,
+            "max_risk": None,
+            "flag": [],
+            "review_label": [],
+            "flag_mode": "any",
+            "search": "",
+            "only_suspicious": False,
+            "start": "",
+            "end": "",
+        },
+        "meta": {
+            "live_mode": True,
+            "results_dir": "/var/lib/proctoring/live",
+            "snapshots_dir": "/var/lib/proctoring/live",
+            "available_flags": API_FLAG_OPTIONS,
+            "available_review_labels": sorted(REVIEW_LABEL_IDS),
+            "total_matching_attempts": 1,
+            "returned_attempts": 1,
+            "attempt_limit": 100,
+            "attempt_offset": 0,
+            "total_matching_frames": 1,
+            "returned_frames": 1,
+            "frame_limit": 250,
+            "frame_offset": 0,
+            "sort_by": "timestamp",
+            "sort_order": "desc",
+        },
+        "attempts": [
+            {
+                "student_id": "ps2124-11487",
+                "attempt_id": "quiz51_attempt18365",
+                "course_id": "16",
+                "quiz_id": "51",
+                "quiz_name": "YN_IK",
+                "overall_risk_level": "high",
+                "total_frames": 1,
+                "valid_frames": 1,
+                "suspicious_frames": 1,
+                "percentage_suspicious": 100.0,
+                "max_risk_score": 100.0,
+                "mean_risk_score": 100.0,
+                "top_reasons": ["FACE_HIDDEN", "EXTRA_PERSON"],
+                "incident_count": 1,
+                "question_overview": ["Q:"],
+                "matched_frame_count": 1,
+                "reviewed_frame_count": 0,
+                "updated_at": "2026-04-20T13:07:08Z",
+            }
+        ],
+        "frames": [
+            {
+                "frame_key": "log:18365",
+                "timestamp": "2026-04-20T13:06:58",
+                "snapshot_path": "course_16/quiz_51/ps2124-11487/quiz51_attempt18365/18365.jpg",
+                "snapshot_url": "/snapshot/course_16/quiz_51/ps2124-11487/quiz51_attempt18365/18365.jpg",
+                "risk_score": 100.0,
+                "reasons": ["FACE_HIDDEN", "EXTRA_PERSON"],
+                "analysis_flags": {
+                    "look_away": False,
+                    "talking": False,
+                    "phone": False,
+                    "extra_person": True,
+                    "multi_face": False,
+                    "no_face": False,
+                    "face_hidden": True,
+                    "book_notes": False,
+                    "low_quality": False,
+                    "face_obstructed": False,
+                    "identity_mismatch": False,
+                },
+                "analysis_flag_names": ["EXTRA_PERSON", "FACE_HIDDEN"],
+                "face_count": 1,
+                "look_away_severity": "none",
+                "talking_severity": "none",
+                "talking_confidence": 0.0,
+                "identity_similarity": 0.0,
+                "yaw": None,
+                "pitch": None,
+                "roll": None,
+                "gaze_direction": None,
+                "pose_method": "unknown",
+                "error": None,
+                "source_log_id": 18365,
+                "review": {
+                    "labels": [],
+                    "notes": "",
+                    "updated_at": "",
+                    "reviewed": False,
+                },
+                "student": {
+                    "student_id": "ps2124-11487",
+                    "attempt_id": "quiz51_attempt18365",
+                },
+                "exam": {
+                    "course_id": "16",
+                    "quiz_id": "51",
+                    "quiz_name": "YN_IK",
+                    "quiz_page": "1",
+                    "question_id": "",
+                    "question_slot": "",
+                    "question_name": "",
+                    "question_label": "Q:",
+                },
+            }
+        ],
+    }
+    results_response_content = {
+        "application/json": {
+            "schema": {"$ref": "#/components/schemas/ResultsResponse"},
+            "examples": {
+                "specificStudentAttempt": {
+                    "summary": "Specific student attempt with one flagged frame",
+                    "value": example_attempt_results_response,
+                }
+            },
+        }
+    }
+    results_post_request_content = {
+        "application/json": {
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "exam": {
+                        "type": "object",
+                        "properties": {
+                            "course_id": {"type": "string"},
+                            "quiz_id": {"type": "string"},
+                            "question_id": {"type": "string"},
+                            "question_slot": {"type": "string"},
+                        },
+                    },
+                    "student": {
+                        "type": "object",
+                        "properties": {
+                            "student_id": {"type": "string"},
+                            "attempt_id": {"type": "string"},
+                        },
+                    },
+                    **results_filter_properties,
+                },
+            },
+            "examples": {
+                "flaggedStudentFrames": {
+                    "summary": "Phone and look-away frames for one student",
+                    "value": example_results_request,
+                }
+            },
+        }
+    }
+    review_label_request_example = {
+        "student_id": "ps2124-11487",
+        "attempt_id": "quiz51_attempt18365",
+        "image_path": "course_16/quiz_51/ps2124-11487/quiz51_attempt18365/18365.jpg",
+        "source_log_id": 18365,
+        "labels": ["EXTRA_PERSON", "FACE_HIDDEN"],
+        "notes": "Reviewer confirmed this frame should be flagged.",
+    }
+    review_label_response_example = {
+        "ok": True,
+        "frame_key": "log:18365",
+        "labels": ["EXTRA_PERSON", "FACE_HIDDEN"],
+        "notes": "Reviewer confirmed this frame should be flagged.",
+    }
 
     return {
         "openapi": "3.0.3",
@@ -386,11 +570,7 @@ def build_openapi_spec() -> dict[str, Any]:
                     "responses": {
                         "200": {
                             "description": "Filtered attempt summaries and frame-level evidence.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
-                                }
-                            },
+                            "content": results_response_content,
                         },
                         "400": {
                             "description": "Invalid filter parameter.",
@@ -402,41 +582,12 @@ def build_openapi_spec() -> dict[str, Any]:
                     "summary": "List filtered results using a JSON request body",
                     "requestBody": {
                         "required": False,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "exam": {
-                                            "type": "object",
-                                            "properties": {
-                                                "course_id": {"type": "string"},
-                                                "quiz_id": {"type": "string"},
-                                                "question_id": {"type": "string"},
-                                                "question_slot": {"type": "string"},
-                                            },
-                                        },
-                                        "student": {
-                                            "type": "object",
-                                            "properties": {
-                                                "student_id": {"type": "string"},
-                                                "attempt_id": {"type": "string"},
-                                            },
-                                        },
-                                        **results_filter_properties,
-                                    },
-                                }
-                            }
-                        },
+                        "content": results_post_request_content,
                     },
                     "responses": {
                         "200": {
                             "description": "Filtered attempt summaries and frame-level evidence.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
-                                }
-                            },
+                            "content": results_response_content,
                         },
                         "400": {
                             "description": "Invalid filter body.",
@@ -466,11 +617,7 @@ def build_openapi_spec() -> dict[str, Any]:
                     "responses": {
                         "200": {
                             "description": "Attempt-scoped result payload.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
-                                }
-                            },
+                            "content": results_response_content,
                         }
                     },
                 },
@@ -498,18 +645,25 @@ def build_openapi_spec() -> dict[str, Any]:
                                 "schema": {
                                     "type": "object",
                                     "properties": results_filter_properties,
-                                }
+                                },
+                                "examples": {
+                                    "attemptScopedFilters": {
+                                        "summary": "Attempt-scoped high risk frames",
+                                        "value": {
+                                            "min_risk": 40,
+                                            "frame_limit": 50,
+                                            "sort_by": "risk_score",
+                                            "sort_order": "desc",
+                                        },
+                                    }
+                                },
                             }
                         },
                     },
                     "responses": {
                         "200": {
                             "description": "Attempt-scoped result payload.",
-                            "content": {
-                                "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ResultsResponse"}
-                                }
-                            },
+                            "content": results_response_content,
                         }
                     },
                 },
@@ -522,7 +676,13 @@ def build_openapi_spec() -> dict[str, Any]:
                         "required": True,
                         "content": {
                             "application/json": {
-                                "schema": {"$ref": "#/components/schemas/ReviewLabelRequest"}
+                                "schema": {"$ref": "#/components/schemas/ReviewLabelRequest"},
+                                "examples": {
+                                    "confirmFlags": {
+                                        "summary": "Confirm frame labels after human review",
+                                        "value": review_label_request_example,
+                                    }
+                                },
                             }
                         },
                     },
@@ -531,7 +691,13 @@ def build_openapi_spec() -> dict[str, Any]:
                             "description": "Saved review labels.",
                             "content": {
                                 "application/json": {
-                                    "schema": {"$ref": "#/components/schemas/ReviewLabelResponse"}
+                                    "schema": {"$ref": "#/components/schemas/ReviewLabelResponse"},
+                                    "examples": {
+                                        "saved": {
+                                            "summary": "Saved review labels",
+                                            "value": review_label_response_example,
+                                        }
+                                    },
                                 }
                             },
                         },
