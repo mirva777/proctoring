@@ -307,7 +307,15 @@ def build_export(args: argparse.Namespace) -> int:
         if args.quiz_id is not None and _to_int(row.get("quizid")) != args.quiz_id:
             continue
         selected_logs.append(row)
-    selected_logs.sort(key=lambda item: _to_int(item.get("id")))
+    # Match the Moodle-side review query: process each student's timeline in
+    # chronological order within the requested course/quiz.
+    selected_logs.sort(
+        key=lambda item: (
+            _to_int(item.get("userid")),
+            _to_int(item.get("timemodified")),
+            _to_int(item.get("id")),
+        )
+    )
 
     exported_frames: list[ExportedFrame] = []
     exported_snapshot_user_ids: set[int] = set()

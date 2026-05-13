@@ -675,6 +675,63 @@ def build_openapi_spec() -> dict[str, Any]:
                     },
                 },
             },
+            "/api/results/student/{student_id}/quiz/{quiz_id}": {
+                "get": {
+                    "tags": ["Results"],
+                    "summary": "Get results for one student in one Moodle quiz",
+                    "description": "Filters by Moodle quizaccess_proctoring_logs.quizid, so callers do not need to know the internal attempt_id.",
+                    "parameters": [
+                        {
+                            "name": "student_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "quiz_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        *results_query_parameters,
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Student and quiz scoped result payload.",
+                            "content": results_response_content,
+                        }
+                    },
+                },
+                "post": {
+                    "tags": ["Results"],
+                    "summary": "Get results for one student in one Moodle quiz with a JSON body",
+                    "description": "Filters by Moodle quizaccess_proctoring_logs.quizid, so callers do not need to know the internal attempt_id.",
+                    "parameters": [
+                        {
+                            "name": "student_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "quiz_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "requestBody": {
+                        "required": False,
+                        "content": results_post_request_content,
+                    },
+                    "responses": {
+                        "200": {
+                            "description": "Student and quiz scoped result payload.",
+                            "content": results_response_content,
+                        }
+                    },
+                },
+            },
             "/api/review-labels": {
                 "post": {
                     "tags": ["Review"],
@@ -1160,8 +1217,9 @@ def _sort_attempts(attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         key=lambda item: (
             order.get(_normalize_text(item.get("overall_risk_level")).lower(), 9),
             -float(item.get("mean_risk_score") or 0.0),
+            _normalize_text(item.get("quiz_id")),
             _normalize_text(item.get("student_id")),
-            _normalize_text(item.get("attempt_id")),
+            _normalize_text(item.get("updated_at")),
         ),
     )
 
@@ -1258,6 +1316,7 @@ def _build_results_payload(
     *,
     forced_student_id: str | None = None,
     forced_attempt_id: str | None = None,
+    forced_quiz_id: str | None = None,
 ) -> dict[str, Any]:
     payload = _request_payload()
     requested_flags = [flag.upper() for flag in _request_list("flag", payload)]
@@ -1287,7 +1346,7 @@ def _build_results_payload(
     attempt_offset = _request_int("attempt_offset", payload, 0)
 
     course_filters = _request_list("course_id", payload)
-    quiz_filters = _request_list("quiz_id", payload)
+    quiz_filters = [forced_quiz_id] if forced_quiz_id else _request_list("quiz_id", payload)
     student_filters = [forced_student_id] if forced_student_id else _request_list("student_id", payload)
     attempt_filters = [forced_attempt_id] if forced_attempt_id else _request_list("attempt_id", payload)
     question_id_filters = _request_list("question_id", payload)
@@ -1627,6 +1686,16 @@ def api_results_for_attempt(student_id: str, attempt_id: str):
         _build_results_payload(
             forced_student_id=student_id,
             forced_attempt_id=attempt_id,
+        )
+    )
+
+
+@app.route("/api/results/student/<student_id>/quiz/<quiz_id>", methods=["GET", "POST"])
+def api_results_for_student_quiz(student_id: str, quiz_id: str):
+    return jsonify(
+        _build_results_payload(
+            forced_student_id=student_id,
+            forced_quiz_id=quiz_id,
         )
     )
 

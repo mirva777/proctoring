@@ -14,6 +14,7 @@ def _record(
     timestamp: str,
     risk_score: float,
     reasons: list[str],
+    quiz_id: str = "88195",
     phone_detected: bool = False,
     talking_flag: bool = False,
     look_away_flag: bool = False,
@@ -25,7 +26,7 @@ def _record(
         attempt_id=attempt_id,
         timestamp=timestamp,
         course_id="1782",
-        quiz_id="88195",
+        quiz_id=quiz_id,
         quiz_name="Midterm",
         quiz_page="3",
         question_id="45",
@@ -102,8 +103,21 @@ def _seed_store(store: LiveResultStore) -> None:
             low_quality=True,
         )
     )
+    store.upsert_frame(
+        _record(
+            source_log_id=301,
+            student_id="student_1",
+            attempt_id="quiz11_attempt101",
+            timestamp="2026-04-21T10:03:00",
+            risk_score=45.0,
+            reasons=["PHONE"],
+            quiz_id="99999",
+            phone_detected=True,
+        )
+    )
     store.update_attempt_summary("student_1", "quiz10_attempt99")
     store.update_attempt_summary("student_2", "quiz10_attempt100")
+    store.update_attempt_summary("student_1", "quiz11_attempt101")
 
 
 def test_results_api_filters_by_flag_and_returns_nested_metadata(tmp_path):
@@ -183,6 +197,15 @@ def test_results_api_accepts_post_body_and_attempt_shortcut_route(tmp_path):
     assert shortcut_payload["meta"]["total_matching_attempts"] == 1
     assert len(shortcut_payload["frames"]) == 2
 
+    student_quiz = client.get("/api/results/student/student_1/quiz/88195")
+    assert student_quiz.status_code == 200
+    student_quiz_payload = student_quiz.get_json()
+    assert student_quiz_payload["filters"]["student_id"] == ["student_1"]
+    assert student_quiz_payload["filters"]["quiz_id"] == ["88195"]
+    assert student_quiz_payload["meta"]["total_matching_attempts"] == 1
+    assert len(student_quiz_payload["frames"]) == 2
+    assert {frame["exam"]["quiz_id"] for frame in student_quiz_payload["frames"]} == {"88195"}
+
 
 def test_openapi_and_swagger_docs_routes(tmp_path):
     live_db = tmp_path / "live.sqlite3"
@@ -202,6 +225,7 @@ def test_openapi_and_swagger_docs_routes(tmp_path):
     assert spec["openapi"] == "3.0.3"
     assert spec["info"]["title"] == "Exam Proctoring Review API"
     assert "/api/results" in spec["paths"]
+    assert "/api/results/student/{student_id}/quiz/{quiz_id}" in spec["paths"]
     assert "/api/review-labels" in spec["paths"]
     result_examples = spec["paths"]["/api/results/{student_id}/{attempt_id}"]["get"]["responses"]["200"]["content"]["application/json"]["examples"]
     example = result_examples["specificStudentAttempt"]["value"]
